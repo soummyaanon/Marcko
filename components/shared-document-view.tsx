@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { marked } from "marked"
+import hljs from "highlight.js"
 import { Check, Copy, FileText, Moon, Sun, Monitor, Link, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -49,6 +50,14 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
     mediaQuery.addEventListener("change", handleChange)
     return () => mediaQuery.removeEventListener("change", handleChange)
   }, [theme])
+
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.querySelectorAll("pre code").forEach((block) => {
+        hljs.highlightElement(block as HTMLElement)
+      })
+    }
+  }, [html])
 
   const copyContent = async () => {
     if (contentRef.current) {

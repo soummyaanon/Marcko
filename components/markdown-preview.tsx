@@ -1,7 +1,8 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useMemo, useRef, useState, useEffect } from "react"
 import { marked } from "marked"
+import hljs from "highlight.js"
 import { Check, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -21,6 +22,14 @@ export function MarkdownPreview({ content, showCopyButton = true }: MarkdownPrev
     })
     return marked.parse(content || "") as string
   }, [content])
+
+  useEffect(() => {
+    if (previewRef.current) {
+      previewRef.current.querySelectorAll("pre code").forEach((block) => {
+        hljs.highlightElement(block as HTMLElement)
+      })
+    }
+  }, [html])
 
   const copyRenderedContent = async () => {
     if (previewRef.current) {
