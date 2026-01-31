@@ -1,8 +1,13 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
-import { marked } from "marked"
-import hljs from "highlight.js"
+import { useState, useEffect, useRef } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math"
+import remarkBreaks from "remark-breaks"
+import rehypeKatex from "rehype-katex"
+import rehypeHighlight from "rehype-highlight"
+import "katex/dist/katex.min.css"
 import { Check, Copy, FileText, Moon, Sun, Monitor, Link, Pencil, Github, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,13 +28,7 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
   const [copiedLink, setCopiedLink] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
 
-  const html = useMemo(() => {
-    marked.setOptions({
-      gfm: true,
-      breaks: true,
-    })
-    return marked.parse(content || "") as string
-  }, [content])
+
 
   useEffect(() => {
     const root = document.documentElement
@@ -51,13 +50,7 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
     return () => mediaQuery.removeEventListener("change", handleChange)
   }, [theme])
 
-  useEffect(() => {
-    if (contentRef.current) {
-      contentRef.current.querySelectorAll("pre code").forEach((block) => {
-        hljs.highlightElement(block as HTMLElement)
-      })
-    }
-  }, [html])
+
 
   const copyContent = async () => {
     if (contentRef.current) {
@@ -178,8 +171,14 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
           <div
             ref={contentRef}
             className="markdown-content"
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
+          >
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
+              rehypePlugins={[rehypeKatex, rehypeHighlight]}
+            >
+              {content}
+            </ReactMarkdown>
+          </div>
         </article>
       </main>
 

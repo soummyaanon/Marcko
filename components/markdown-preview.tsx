@@ -1,8 +1,13 @@
 "use client"
 
-import { useMemo, useRef, useState, useEffect } from "react"
-import { marked } from "marked"
-import hljs from "highlight.js"
+import { useRef, useState } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math"
+import remarkBreaks from "remark-breaks"
+import rehypeKatex from "rehype-katex"
+import rehypeHighlight from "rehype-highlight"
+import "katex/dist/katex.min.css"
 import { Check, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -14,22 +19,6 @@ interface MarkdownPreviewProps {
 export function MarkdownPreview({ content, showCopyButton = true }: MarkdownPreviewProps) {
   const previewRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
-
-  const html = useMemo(() => {
-    marked.setOptions({
-      gfm: true,
-      breaks: true,
-    })
-    return marked.parse(content || "") as string
-  }, [content])
-
-  useEffect(() => {
-    if (previewRef.current) {
-      previewRef.current.querySelectorAll("pre code").forEach((block) => {
-        hljs.highlightElement(block as HTMLElement)
-      })
-    }
-  }, [html])
 
   const copyRenderedContent = async () => {
     if (previewRef.current) {
@@ -108,8 +97,14 @@ export function MarkdownPreview({ content, showCopyButton = true }: MarkdownPrev
         <div
           ref={previewRef}
           className="markdown-content py-4 pr-4 pl-10"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
+        >
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
+            rehypePlugins={[rehypeKatex, rehypeHighlight]}
+          >
+            {content}
+          </ReactMarkdown>
+        </div>
       </div>
     </div>
   )
