@@ -2,11 +2,19 @@
 
 A professional markdown editor with real-time preview and sharing capabilities.
 
+[![GitHub stars](https://img.shields.io/github/stars/soummyaanon/Marcko?style=social)](https://github.com/soummyaanon/Marcko)
+
+> 💫 **If you find this project useful, please consider giving it a star!** [⭐ Star on GitHub](https://github.com/soummyaanon/Marcko)
+
+## Created by
+
+**[soummyaanon](https://github.com/soummyaanon)** - *Full Stack Developer*
+
 ## Preview
 
 ![Marcko Editor](https://via.placeholder.com/800x450?text=Marcko+Editor+Preview)
 
-> **Live Demo**: Coming soon!
+> 🚀 **Live Demo**: [marcko.vercel.app/share](https://marcko.vercel.app/share)
 
 ## Features
 
@@ -26,7 +34,7 @@ A professional markdown editor with real-time preview and sharing capabilities.
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/marcko.git
+git clone https://github.com/soummyaanon/Marcko.git
 
 # Navigate to the project
 cd marcko

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { marked } from "marked"
 import hljs from "highlight.js"
-import { Check, Copy, FileText, Moon, Sun, Monitor, Link, Pencil } from "lucide-react"
+import { Check, Copy, FileText, Moon, Sun, Monitor, Link, Pencil, Github, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -183,14 +183,49 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
         </article>
       </main>
 
-      <footer className="border-t border-border bg-muted/30 px-4 py-4 text-center md:px-6">
-        <p className="text-sm text-muted-foreground">
-          Created with{" "}
-          <a href="/" className="font-medium text-foreground hover:underline">
-            Marcko
+      <footer className="border-t border-border bg-muted/30 px-4 py-6 md:px-6">
+        <div className="mx-auto flex max-w-3xl flex-col items-center justify-between gap-4 sm:flex-row">
+          <div className="flex flex-col items-center gap-1 sm:items-start">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Created by</span>
+              <a
+                href="https://github.com/soummyaanon"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 font-medium text-foreground hover:underline"
+              >
+                <Github className="h-3.5 w-3.5" />
+                soummyaanon
+              </a>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Co-authored by{" "}
+              <a
+                href="https://v0.dev"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium hover:underline"
+              >
+                v0
+              </a>
+            </div>
+          </div>
+
+          <a
+            href="https://github.com/soummyaanon/Marcko"
+            target="_blank"
+            rel="noreferrer"
+            className="group flex items-center gap-2 rounded-full border border-border bg-background px-4 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
+          >
+            <Github className="h-4 w-4" />
+            <span>Star on GitHub</span>
+            <span className="flex items-center gap-1 border-l border-border pl-2 text-muted-foreground group-hover:text-foreground">
+              <Star className="h-3.5 w-3.5" />
+            </span>
           </a>
-          {" "}- A professional markdown editor
-        </p>
+        </div>
+        
+
       </footer>
     </div>
   )

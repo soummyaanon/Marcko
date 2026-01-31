@@ -37,7 +37,7 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
+      <div className="flex h-14 items-center justify-between border-b border-border bg-muted/30 px-4">
         <div className="flex items-center gap-2">
           <svg
             className="h-4 w-4 text-muted-foreground"
@@ -62,7 +62,7 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="h-full min-h-full w-full resize-none bg-background p-4 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"
+          className="h-full min-h-full w-full resize-none bg-background py-4 pr-4 pl-10 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"
           placeholder="Start writing markdown here..."
           spellCheck={false}
         />

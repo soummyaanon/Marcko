@@ -60,7 +60,7 @@ export function MarkdownPreview({ content, showCopyButton = true }: MarkdownPrev
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
+      <div className="flex h-14 items-center justify-between border-b border-border bg-muted/30 px-4">
         <div className="flex items-center gap-2">
           <svg
             className="h-4 w-4 text-muted-foreground"
@@ -107,7 +107,7 @@ export function MarkdownPreview({ content, showCopyButton = true }: MarkdownPrev
       <div className="flex-1 overflow-auto">
         <div
           ref={previewRef}
-          className="markdown-content p-4"
+          className="markdown-content py-4 pr-4 pl-10"
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>
