@@ -1,30 +1,62 @@
-# Markdown editor and previewer
+# Marcko - Markdown Editor
 
-*Automatically synced with your [v0.app](https://v0.app) deployments*
+A professional markdown editor with real-time preview and sharing capabilities.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/soumyaranjanteam2000/v0-markdown-editor-and-previewer)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/fiM0dC5ftyA)
+## Preview
 
-## Overview
+![Marcko Editor](https://via.placeholder.com/800x450?text=Marcko+Editor+Preview)
 
-This repository will stay in sync with your deployed chats on [v0.app](https://v0.app).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.app](https://v0.app).
+> **Live Demo**: Coming soon!
 
-## Deployment
+## Features
 
-Your project is live at:
+- **Real-time Preview**: See your markdown rendered instantly as you type
+- **Syntax Highlighting**: Code blocks with proper syntax highlighting
+- **Clean Interface**: Distraction-free writing experience
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
 
-**[https://vercel.com/soumyaranjanteam2000/v0-markdown-editor-and-previewer](https://vercel.com/soumyaranjanteam2000/v0-markdown-editor-and-previewer)**
+## Getting Started
 
-## Build your app
+### Prerequisites
 
-Continue building your app on:
+- Node.js 18+ 
+- pnpm (recommended) or npm
 
-**[https://v0.app/chat/fiM0dC5ftyA](https://v0.app/chat/fiM0dC5ftyA)**
+### Installation
 
-## How It Works
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/marcko.git
 
-1. Create and modify your project using [v0.app](https://v0.app)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+# Navigate to the project
+cd marcko
+
+# Install dependencies
+pnpm install
+
+# Start the development server
+pnpm dev
+```
+
+### Building for Production
+
+```bash
+pnpm build
+pnpm start
+```
+
+## Tech Stack
+
+- **Framework**: Next.js 16
+- **Styling**: TailwindCSS
+- **UI Components**: Radix UI + shadcn/ui
+- **Markdown**: Marked
+- **Syntax Highlighting**: Highlight.js
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT License - see the [LICENSE](LICENSE) file for details.

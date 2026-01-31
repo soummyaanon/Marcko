@@ -10,7 +10,8 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: 'Marcko - Markdown Editor',
   description: 'A professional markdown editor with real-time preview and sharing capabilities',
-  generator: 'v0.app',
+  keywords: ['markdown', 'editor', 'preview', 'writing', 'documentation', 'marcko'],
+  authors: [{ name: 'Marcko Team' }],
   icons: {
     icon: [
       {
