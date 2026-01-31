@@ -198,17 +198,6 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
                 soummyaanon
               </a>
             </div>
-            <div className="text-xs text-muted-foreground">
-              Co-authored by{" "}
-              <a
-                href="https://v0.dev"
-                target="_blank"
-                rel="noreferrer"
-                className="font-medium hover:underline"
-              >
-                v0
-              </a>
-            </div>
           </div>
 
           <a
