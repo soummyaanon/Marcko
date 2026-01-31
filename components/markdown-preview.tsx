@@ -93,7 +93,7 @@ export function MarkdownPreview({ content, showCopyButton = true }: MarkdownPrev
           </Button>
         )}
       </div>
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto min-h-0">
         <div
           ref={previewRef}
           className="markdown-content py-4 pr-4 pl-10"

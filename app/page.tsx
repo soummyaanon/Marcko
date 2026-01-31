@@ -6,6 +6,7 @@ import { MarkdownPreview } from "@/components/markdown-preview"
 import { EditorToolbar } from "@/components/editor-toolbar"
 import { createClient } from "@/lib/supabase/client"
 import { nanoid } from "nanoid"
+import { Github, Star } from "lucide-react"
 
 const DEFAULT_MARKDOWN = `# Welcome to Marcko
 
@@ -127,7 +128,7 @@ export default function Home() {
   }, [markdown, supabase])
 
   return (
-    <div className="flex h-screen flex-col bg-background">
+    <div className="fixed inset-0 flex flex-col bg-background overflow-hidden">
       <EditorToolbar 
         onShare={handleShare} 
         theme={theme} 
@@ -143,6 +144,38 @@ export default function Home() {
           <MarkdownPreview content={markdown} />
         </div>
       </main>
+
+      <footer className="border-t border-border bg-muted/30 px-4 py-2 md:px-6"> 
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 sm:flex-row">
+          <div className="flex flex-col items-center gap-1 sm:items-start">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Created by</span>
+              <a
+                href="https://github.com/soummyaanon"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 font-medium text-foreground hover:underline"
+              >
+                <Github className="h-3 w-3" />
+                soummyaanon
+              </a>
+            </div>
+          </div>
+
+          <a
+            href="https://github.com/soummyaanon/Marcko"
+            target="_blank"
+            rel="noreferrer"
+            className="group flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium transition-colors hover:bg-muted"
+          >
+            <Github className="h-3.5 w-3.5" />
+            <span>Star on GitHub</span>
+            <span className="flex items-center gap-1 border-l border-border pl-2 text-muted-foreground group-hover:text-foreground">
+              <Star className="h-3 w-3" />
+            </span>
+          </a>
+        </div>
+      </footer>
     </div>
   )
 }
