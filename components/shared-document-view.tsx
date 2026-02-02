@@ -8,7 +8,8 @@ import remarkBreaks from "remark-breaks"
 import rehypeKatex from "rehype-katex"
 import rehypeHighlight from "rehype-highlight"
 import "katex/dist/katex.min.css"
-import { Check, Copy, FileText, Moon, Sun, Monitor, Link, Pencil, Github, Star } from "lucide-react"
+import { Check, Copy, FileText, Moon, Sun, Monitor, Link, Pencil, Github, Star, Bot } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -16,6 +17,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { OpenAI } from "@/components/logo/openai"
+import { ClaudeAI } from "@/components/logo/claude"
+import { PerplexityAI } from "@/components/logo/perplexity"
 
 interface SharedDocumentViewProps {
   content: string
@@ -53,22 +57,37 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
 
 
   const copyContent = async () => {
-    if (contentRef.current) {
-      try {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            "text/html": new Blob([contentRef.current.innerHTML], { type: "text/html" }),
-            "text/plain": new Blob([contentRef.current.innerText], { type: "text/plain" }),
-          }),
-        ])
-        setCopiedContent(true)
-        setTimeout(() => setCopiedContent(false), 2000)
-      } catch {
-        await navigator.clipboard.writeText(contentRef.current.innerText)
-        setCopiedContent(true)
-        setTimeout(() => setCopiedContent(false), 2000)
-      }
+    try {
+      await navigator.clipboard.writeText(content)
+      setCopiedContent(true)
+      setTimeout(() => setCopiedContent(false), 2000)
+    } catch (err) {
+      console.error("Failed to copy content", err)
     }
+  }
+
+  const openInApp = async (agent: "chatgpt" | "claude" | "perplexity") => {
+    const shareUrl = `${window.location.origin}/share/${documentId}`
+    await navigator.clipboard.writeText(shareUrl)
+    setCopiedLink(true)
+    setTimeout(() => setCopiedLink(false), 2000)
+
+    let url = ""
+    const encodedUrl = encodeURIComponent(`Here is a document I want to discuss: ${shareUrl}`)
+
+    switch (agent) {
+      case "chatgpt":
+        url = `https://chatgpt.com/?q=${encodedUrl}`
+        break
+      case "claude":
+        url = `https://claude.ai/new?q=${encodedUrl}`
+        break
+      case "perplexity":
+        url = `https://www.perplexity.ai/search?q=${encodedUrl}`
+        break
+    }
+
+    window.open(url, "_blank")
   }
 
   const copyLink = async () => {
@@ -94,6 +113,29 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
         </div>
 
         <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-1.5 hidden sm:flex">
+                <Bot className="h-4 w-4" />
+                <span className="hidden lg:inline">Open with AI</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openInApp("chatgpt")}>
+                <OpenAI className="mr-2 h-4 w-4" />
+                ChatGPT
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openInApp("claude")}>
+                <ClaudeAI className="mr-2 h-4 w-4" />
+                Claude
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openInApp("perplexity")}>
+                <PerplexityAI className="mr-2 h-4 w-4" />
+                Perplexity (Research)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9">
@@ -147,12 +189,12 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
             {copiedContent ? (
               <>
                 <Check className="h-4 w-4" />
-                <span className="hidden sm:inline">Copied</span>
+                <span className="hidden sm:inline">Copied as Markdown</span>
               </>
             ) : (
               <>
                 <Copy className="h-4 w-4" />
-                <span className="hidden sm:inline">Copy</span>
+                <span className="hidden sm:inline">Copy as Markdown</span>
               </>
             )}
           </Button>
@@ -212,8 +254,6 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
             </span>
           </a>
         </div>
-        
-
       </footer>
     </div>
   )
