@@ -8,7 +8,7 @@ import remarkBreaks from "remark-breaks"
 import rehypeKatex from "rehype-katex"
 import rehypeHighlight from "rehype-highlight"
 import "katex/dist/katex.min.css"
-import { Check, Copy, FileText, Moon, Sun, Monitor, Link, Pencil, Github, Star, Bot } from "lucide-react"
+import { Check, Copy, FileText, Moon, Sun, Monitor, Link, Pencil, Github, Star, Bot, Menu } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -16,6 +16,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu"
 import { OpenAI } from "@/components/logo/openai"
 import { ClaudeAI } from "@/components/logo/claude"
@@ -113,98 +117,179 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
         </div>
 
         <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-1.5 hidden sm:flex">
-                <Bot className="h-4 w-4" />
-                <span className="hidden lg:inline">Open with AI</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => openInApp("chatgpt")}>
-                <OpenAI className="mr-2 h-4 w-4" />
-                ChatGPT
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openInApp("claude")}>
-                <ClaudeAI className="mr-2 h-4 w-4" />
-                Claude
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openInApp("perplexity")}>
-                <PerplexityAI className="mr-2 h-4 w-4" />
-                Perplexity (Research)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Desktop View */}
+          <div className="hidden md:flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1.5 hidden sm:flex">
+                  <Bot className="h-4 w-4" />
+                  <span className="hidden lg:inline">Open with AI</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => openInApp("chatgpt")}>
+                  <OpenAI className="mr-2 h-4 w-4" />
+                  ChatGPT
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openInApp("claude")}>
+                  <ClaudeAI className="mr-2 h-4 w-4" />
+                  Claude
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openInApp("perplexity")}>
+                  <PerplexityAI className="mr-2 h-4 w-4" />
+                  Perplexity (Research)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
-                {theme === "light" && <Sun className="h-4 w-4" />}
-                {theme === "dark" && <Moon className="h-4 w-4" />}
-                {theme === "system" && <Monitor className="h-4 w-4" />}
-                <span className="sr-only">Toggle theme</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setTheme("light")}>
-                <Sun className="mr-2 h-4 w-4" />
-                Light
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("dark")}>
-                <Moon className="mr-2 h-4 w-4" />
-                Dark
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("system")}>
-                <Monitor className="mr-2 h-4 w-4" />
-                System
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9">
+                  {theme === "light" && <Sun className="h-4 w-4" />}
+                  {theme === "dark" && <Moon className="h-4 w-4" />}
+                  {theme === "system" && <Monitor className="h-4 w-4" />}
+                  <span className="sr-only">Toggle theme</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setTheme("light")}>
+                  <Sun className="mr-2 h-4 w-4" />
+                  Light
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("dark")}>
+                  <Moon className="mr-2 h-4 w-4" />
+                  Dark
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("system")}>
+                  <Monitor className="mr-2 h-4 w-4" />
+                  System
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={copyLink}
-            className="gap-1.5"
-          >
-            {copiedLink ? (
-              <>
-                <Check className="h-4 w-4" />
-                <span className="hidden sm:inline">Copied</span>
-              </>
-            ) : (
-              <>
-                <Link className="h-4 w-4" />
-                <span className="hidden sm:inline">Copy Link</span>
-              </>
-            )}
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={copyLink}
+              className="gap-1.5"
+            >
+              {copiedLink ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  <span className="hidden sm:inline">Copied</span>
+                </>
+              ) : (
+                <>
+                  <Link className="h-4 w-4" />
+                  <span className="hidden sm:inline">Copy Link</span>
+                </>
+              )}
+            </Button>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={copyContent}
-            className="gap-1.5"
-          >
-            {copiedContent ? (
-              <>
-                <Check className="h-4 w-4" />
-                <span className="hidden sm:inline">Copied as Markdown</span>
-              </>
-            ) : (
-              <>
-                <Copy className="h-4 w-4" />
-                <span className="hidden sm:inline">Copy as Markdown</span>
-              </>
-            )}
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={copyContent}
+              className="gap-1.5"
+            >
+              {copiedContent ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  <span className="hidden sm:inline">Copied as Markdown</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4" />
+                  <span className="hidden sm:inline">Copy as Markdown</span>
+                </>
+              )}
+            </Button>
 
-          <Button asChild size="sm" className="gap-1.5">
-            <a href="/">
-              <Pencil className="h-4 w-4" />
-              <span className="hidden sm:inline">New Document</span>
-            </a>
-          </Button>
+            <Button asChild size="sm" className="gap-1.5">
+              <a href="/">
+                <Pencil className="h-4 w-4" />
+                <span className="hidden sm:inline">New Document</span>
+              </a>
+            </Button>
+          </div>
+
+          {/* Mobile View */}
+          <div className="flex md:hidden items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Open menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Bot className="mr-2 h-4 w-4" />
+                    <span>Open with AI</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={() => openInApp("chatgpt")}>
+                      <OpenAI className="mr-2 h-4 w-4" />
+                      ChatGPT
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openInApp("claude")}>
+                      <ClaudeAI className="mr-2 h-4 w-4" />
+                      Claude
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openInApp("perplexity")}>
+                      <PerplexityAI className="mr-2 h-4 w-4" />
+                      Perplexity
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    {theme === "light" && <Sun className="mr-2 h-4 w-4" />}
+                    {theme === "dark" && <Moon className="mr-2 h-4 w-4" />}
+                    {theme === "system" && <Monitor className="mr-2 h-4 w-4" />}
+                    <span>Theme</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={() => setTheme("light")}>
+                      <Sun className="mr-2 h-4 w-4" />
+                      Light
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setTheme("dark")}>
+                      <Moon className="mr-2 h-4 w-4" />
+                      Dark
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setTheme("system")}>
+                      <Monitor className="mr-2 h-4 w-4" />
+                      System
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem onClick={copyLink}>
+                  {copiedLink ? <Check className="mr-2 h-4 w-4" /> : <Link className="mr-2 h-4 w-4" />}
+                  <span>{copiedLink ? "Copied" : "Copy Link"}</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem onClick={copyContent}>
+                  {copiedContent ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+                  <span>{copiedContent ? "Copied" : "Copy Markdown"}</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem asChild>
+                  <a href="/">
+                    <Pencil className="mr-2 h-4 w-4" />
+                    <span>New Document</span>
+                  </a>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
 
