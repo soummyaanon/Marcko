@@ -307,6 +307,7 @@
   background-color: var(--muted);
   border-radius: 0.5rem;
   overflow-x: auto;
+  max-width: 100%;
 }
 
 .markdown-content pre code {

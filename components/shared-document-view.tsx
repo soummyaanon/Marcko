@@ -17,9 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
 import { OpenAI } from "@/components/logo/openai"
 import { ClaudeAI } from "@/components/logo/claude"
@@ -223,49 +221,35 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Bot className="mr-2 h-4 w-4" />
-                    <span>Open with AI</span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuItem onClick={() => openInApp("chatgpt")}>
-                      <OpenAI className="mr-2 h-4 w-4" />
-                      ChatGPT
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => openInApp("claude")}>
-                      <ClaudeAI className="mr-2 h-4 w-4" />
-                      Claude
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => openInApp("perplexity")}>
-                      <PerplexityAI className="mr-2 h-4 w-4" />
-                      Perplexity
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                <DropdownMenuLabel>Open with AI</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => openInApp("chatgpt")}>
+                  <OpenAI className="mr-2 h-4 w-4" />
+                  ChatGPT
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openInApp("claude")}>
+                  <ClaudeAI className="mr-2 h-4 w-4" />
+                  Claude
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openInApp("perplexity")}>
+                  <PerplexityAI className="mr-2 h-4 w-4" />
+                  Perplexity
+                </DropdownMenuItem>
                 
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    {theme === "light" && <Sun className="mr-2 h-4 w-4" />}
-                    {theme === "dark" && <Moon className="mr-2 h-4 w-4" />}
-                    {theme === "system" && <Monitor className="mr-2 h-4 w-4" />}
-                    <span>Theme</span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuItem onClick={() => setTheme("light")}>
-                      <Sun className="mr-2 h-4 w-4" />
-                      Light
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setTheme("dark")}>
-                      <Moon className="mr-2 h-4 w-4" />
-                      Dark
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setTheme("system")}>
-                      <Monitor className="mr-2 h-4 w-4" />
-                      System
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                
+                <DropdownMenuLabel>Theme</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setTheme("light")}>
+                  <Sun className="mr-2 h-4 w-4" />
+                  Light
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("dark")}>
+                  <Moon className="mr-2 h-4 w-4" />
+                  Dark
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("system")}>
+                  <Monitor className="mr-2 h-4 w-4" />
+                  System
+                </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
 
