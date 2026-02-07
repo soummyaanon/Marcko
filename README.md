@@ -14,7 +14,7 @@ A professional markdown editor with real-time preview and sharing capabilities.
 
 ![Marcko Editor](https://via.placeholder.com/800x450?text=Marcko+Editor+Preview)
 
-> 🚀 **Live Demo**: [marcko.vercel.app/share](https://marcko.vercel.app/share)
+> 🚀 **Live Demo**: [Marcko](marcko.vercel.app)
 
 ## Features
 
