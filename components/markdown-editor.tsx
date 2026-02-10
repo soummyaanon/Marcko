@@ -4,6 +4,12 @@ import React from "react"
 
 import { useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { normalizeMarkdownImageHtml } from "@/lib/markdown"
 import { 
   Bold, 
@@ -275,6 +281,30 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
     }
   }
 
+  const ToolbarButton = ({
+    label,
+    onClick,
+    children,
+  }: {
+    label: string
+    onClick: () => void
+    children: React.ReactNode
+  }) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onClick}
+          aria-label={label}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  )
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-14 items-center gap-1 border-b border-border bg-muted/30 px-2 overflow-x-auto">
@@ -285,97 +315,77 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
           className="hidden"
           onChange={handleMarkdownFileUpload}
         />
-        <Button
-            variant="ghost"
-            size="icon-sm"
+        <TooltipProvider delayDuration={150}>
+          <ToolbarButton
+            label="Bold (Cmd+B)"
             onClick={() => handleFormat("**", "**", "bold text")}
-            title="Bold (Cmd+B)"
-        >
+          >
             <Bold className="h-4 w-4" />
-        </Button>
-        <Button
-            variant="ghost"
-            size="icon-sm"
+          </ToolbarButton>
+          <ToolbarButton
+            label="Italic (Cmd+I)"
             onClick={() => handleFormat("*", "*", "italic text")}
-            title="Italic (Cmd+I)"
-        >
+          >
             <Italic className="h-4 w-4" />
-        </Button>
-        <Button
-            variant="ghost"
-            size="icon-sm"
+          </ToolbarButton>
+          <ToolbarButton
+            label="Strikethrough (Cmd+Shift+S)"
             onClick={() => handleFormat("~~", "~~", "strikethrough text")}
-            title="Strikethrough (Cmd+Shift+S)"
-        >
+          >
             <Strikethrough className="h-4 w-4" />
-        </Button>
-        <div className="mx-1 h-4 w-[1px] bg-border" />
-        <Button
-            variant="ghost"
-            size="icon-sm"
+          </ToolbarButton>
+          <div className="mx-1 h-4 w-[1px] bg-border" />
+          <ToolbarButton
+            label="Heading"
             onClick={() => handleFormat("### ", "", "Heading 3")}
-            title="Heading"
-        >
+          >
             <Heading1 className="h-4 w-4" />
-        </Button>
-        <Button
-            variant="ghost"
-            size="icon-sm"
+          </ToolbarButton>
+          <ToolbarButton
+            label="Bullet List"
             onClick={() => handleFormat("- ", "", "list item")}
-            title="Bullet List"
-        >
+          >
             <List className="h-4 w-4" />
-        </Button>
-        <Button
-            variant="ghost"
-            size="icon-sm"
+          </ToolbarButton>
+          <ToolbarButton
+            label="Ordered List"
             onClick={() => handleFormat("1. ", "", "list item")}
-            title="Ordered List"
-        >
+          >
             <ListOrdered className="h-4 w-4" />
-        </Button>
-        <Button
-            variant="ghost"
-            size="icon-sm"
+          </ToolbarButton>
+          <ToolbarButton
+            label="Quote"
             onClick={() => handleFormat("> ", "", "quote")}
-            title="Quote"
-        >
+          >
             <Quote className="h-4 w-4" />
-        </Button>
-        <div className="mx-1 h-4 w-[1px] bg-border" />
-        <Button
-            variant="ghost"
-            size="icon-sm"
+          </ToolbarButton>
+          <div className="mx-1 h-4 w-[1px] bg-border" />
+          <ToolbarButton
+            label="Inline Code (Cmd+Shift+C)"
             onClick={() => handleFormat("`", "`", "code")}
-            title="Inline Code (Cmd+Shift+C)"
-        >
+          >
             <Code className="h-4 w-4" />
-        </Button>
-        <Button
-            variant="ghost"
-            size="icon-sm"
+          </ToolbarButton>
+          <ToolbarButton
+            label="Mermaid Diagram (Cmd+Shift+M)"
             onClick={() => handleFormat("```mermaid\n", "\n```", mermaidTemplate)}
-            title="Mermaid Diagram (Cmd+Shift+M)"
-        >
+          >
             <Workflow className="h-4 w-4" />
-        </Button>
-        <Button
-            variant="ghost"
-            size="icon-sm"
+          </ToolbarButton>
+          <ToolbarButton
+            label="Link (Cmd+K)"
             onClick={() => handleFormat("[", "](url)", "link text")}
-            title="Link (Cmd+K)"
-        >
+          >
             <LinkIcon className="h-4 w-4" />
-        </Button>
-        <div className="mx-1 h-4 w-[1px] bg-border" />
-        <Button
-            variant="ghost"
-            size="icon-sm"
+          </ToolbarButton>
+          <div className="mx-1 h-4 w-[1px] bg-border" />
+          <ToolbarButton
+            label="Upload Markdown (.md)"
             onClick={handleFileUploadClick}
-            title="Upload Markdown (.md)"
-        >
+          >
             <Upload className="h-4 w-4" />
-        </Button>
+          </ToolbarButton>
+        </TooltipProvider>
       </div>
       <div className="flex-1 overflow-auto">
         <textarea
