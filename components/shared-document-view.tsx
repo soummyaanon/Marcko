@@ -40,16 +40,20 @@ import { PerplexityAI } from "@/components/logo/perplexity"
 import { markdownComponentsWithMermaid } from "@/components/markdown-components"
 import { normalizeMarkdownImageHtml } from "@/lib/markdown"
 
+type SharedBy = { type: "guest" } | { type: "user"; name: string }
+
 interface SharedDocumentViewProps {
   content: string
   documentId?: string
   onBackToEditor?: () => void
+  sharedBy?: SharedBy
 }
 
 export function SharedDocumentView({
   content,
   documentId,
   onBackToEditor,
+  sharedBy,
 }: SharedDocumentViewProps) {
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system")
   const [copiedContent, setCopiedContent] = useState(false)
@@ -338,6 +342,11 @@ export function SharedDocumentView({
 
       <main className="flex-1 px-4 py-8 md:px-6">
         <article className="mx-auto max-w-3xl">
+          {sharedBy ? (
+            <p className="mb-6 text-sm text-muted-foreground">
+              Shared by {sharedBy.type === "guest" ? "guest" : sharedBy.name}
+            </p>
+          ) : null}
           <div
             ref={contentRef}
             className="markdown-content"
