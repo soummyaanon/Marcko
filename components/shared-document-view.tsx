@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
@@ -23,6 +23,7 @@ import { OpenAI } from "@/components/logo/openai"
 import { ClaudeAI } from "@/components/logo/claude"
 import { PerplexityAI } from "@/components/logo/perplexity"
 import { markdownComponentsWithMermaid } from "@/components/markdown-components"
+import { normalizeMarkdownImageHtml } from "@/lib/markdown"
 
 interface SharedDocumentViewProps {
   content: string
@@ -34,6 +35,7 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
   const [copiedContent, setCopiedContent] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
+  const normalizedContent = useMemo(() => normalizeMarkdownImageHtml(content), [content])
 
 
 
@@ -289,7 +291,7 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
               rehypePlugins={[rehypeKatex, rehypeHighlight]}
               components={markdownComponentsWithMermaid}
             >
-              {content}
+              {normalizedContent}
             </ReactMarkdown>
           </div>
         </article>

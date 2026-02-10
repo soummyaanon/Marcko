@@ -379,6 +379,12 @@
   border-radius: 0.5rem;
 }
 
+.markdown-content p > img:only-child {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .markdown-content h1:first-child,
 .markdown-content h2:first-child,
 .markdown-content h3:first-child {

@@ -4,6 +4,7 @@ import React from "react"
 
 import { useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { normalizeMarkdownImageHtml } from "@/lib/markdown"
 import { 
   Bold, 
   Italic, 
@@ -14,6 +15,7 @@ import {
   Quote, 
   Code, 
   Link as LinkIcon,
+  Upload,
   Workflow
 } from "lucide-react"
 
@@ -24,6 +26,7 @@ interface MarkdownEditorProps {
 
 export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const mermaidTemplate = "graph TD\n    A[Write Markdown] --> B[Live Preview]"
   
   // History state
@@ -235,9 +238,53 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
       }, 1000)
   }
 
+  const handleFileUploadClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleMarkdownFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const isMarkdownFile =
+      file.name.toLowerCase().endsWith(".md") ||
+      file.type === "text/markdown" ||
+      file.type === "text/x-markdown" ||
+      file.type === "text/plain"
+
+    if (!isMarkdownFile) {
+      e.target.value = ""
+      return
+    }
+
+    try {
+      const fileContent = await file.text()
+      const normalizedContent = normalizeMarkdownImageHtml(fileContent)
+      updateValue(normalizedContent, true)
+
+      if (textareaRef.current) {
+        textareaRef.current.focus()
+        const end = normalizedContent.length
+        textareaRef.current.selectionStart = end
+        textareaRef.current.selectionEnd = end
+      }
+    } catch (error) {
+      console.error("Failed to read markdown file", error)
+    } finally {
+      e.target.value = ""
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-14 items-center gap-1 border-b border-border bg-muted/30 px-2 overflow-x-auto">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".md,text/markdown,text/x-markdown,text/plain"
+          className="hidden"
+          onChange={handleMarkdownFileUpload}
+        />
         <Button
             variant="ghost"
             size="icon-sm"
@@ -319,6 +366,15 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
             title="Link (Cmd+K)"
         >
             <LinkIcon className="h-4 w-4" />
+        </Button>
+        <div className="mx-1 h-4 w-[1px] bg-border" />
+        <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={handleFileUploadClick}
+            title="Upload Markdown (.md)"
+        >
+            <Upload className="h-4 w-4" />
         </Button>
       </div>
       <div className="flex-1 overflow-auto">

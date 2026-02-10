@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
@@ -11,6 +11,7 @@ import "katex/dist/katex.min.css"
 import { Check, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { markdownComponentsWithMermaid } from "@/components/markdown-components"
+import { normalizeMarkdownImageHtml } from "@/lib/markdown"
 
 interface MarkdownPreviewProps {
   content: string
@@ -20,6 +21,7 @@ interface MarkdownPreviewProps {
 export function MarkdownPreview({ content, showCopyButton = true }: MarkdownPreviewProps) {
   const previewRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
+  const normalizedContent = useMemo(() => normalizeMarkdownImageHtml(content), [content])
 
   const copyRenderedContent = async () => {
     if (previewRef.current) {
@@ -104,7 +106,7 @@ export function MarkdownPreview({ content, showCopyButton = true }: MarkdownPrev
             rehypePlugins={[rehypeKatex, rehypeHighlight]}
             components={markdownComponentsWithMermaid}
           >
-            {content}
+            {normalizedContent}
           </ReactMarkdown>
         </div>
       </div>
