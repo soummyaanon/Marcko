@@ -13,7 +13,8 @@ import {
   ListOrdered, 
   Quote, 
   Code, 
-  Link as LinkIcon 
+  Link as LinkIcon,
+  Workflow
 } from "lucide-react"
 
 interface MarkdownEditorProps {
@@ -23,6 +24,7 @@ interface MarkdownEditorProps {
 
 export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const mermaidTemplate = "graph TD\n    A[Write Markdown] --> B[Live Preview]"
   
   // History state
   const [history, setHistory] = React.useState<string[]>([value])
@@ -115,6 +117,10 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
              case 'c':
                  e.preventDefault()
                  handleFormat("`", "`", "code")
+                 return
+             case 'm':
+                 e.preventDefault()
+                 handleFormat("```mermaid\n", "\n```", mermaidTemplate)
                  return
          }
     }
@@ -301,6 +307,14 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
         <Button
             variant="ghost"
             size="icon-sm"
+            onClick={() => handleFormat("```mermaid\n", "\n```", mermaidTemplate)}
+            title="Mermaid Diagram (Cmd+Shift+M)"
+        >
+            <Workflow className="h-4 w-4" />
+        </Button>
+        <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => handleFormat("[", "](url)", "link text")}
             title="Link (Cmd+K)"
         >
@@ -314,7 +328,7 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           className="h-full min-h-full w-full resize-none bg-background py-4 pr-4 pl-4 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"
-          placeholder="Start writing markdown here..."
+          placeholder="Start writing markdown here... Use ```mermaid blocks for diagrams."
           spellCheck={false}
         />
       </div>

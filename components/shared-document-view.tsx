@@ -22,6 +22,7 @@ import {
 import { OpenAI } from "@/components/logo/openai"
 import { ClaudeAI } from "@/components/logo/claude"
 import { PerplexityAI } from "@/components/logo/perplexity"
+import { markdownComponentsWithMermaid } from "@/components/markdown-components"
 
 interface SharedDocumentViewProps {
   content: string
@@ -286,6 +287,7 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
               rehypePlugins={[rehypeKatex, rehypeHighlight]}
+              components={markdownComponentsWithMermaid}
             >
               {content}
             </ReactMarkdown>

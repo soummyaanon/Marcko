@@ -10,6 +10,7 @@ import rehypeHighlight from "rehype-highlight"
 import "katex/dist/katex.min.css"
 import { Check, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { markdownComponentsWithMermaid } from "@/components/markdown-components"
 
 interface MarkdownPreviewProps {
   content: string
@@ -101,6 +102,7 @@ export function MarkdownPreview({ content, showCopyButton = true }: MarkdownPrev
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
             rehypePlugins={[rehypeKatex, rehypeHighlight]}
+            components={markdownComponentsWithMermaid}
           >
             {content}
           </ReactMarkdown>

@@ -317,6 +317,38 @@
   line-height: 1.5;
 }
 
+.markdown-content .mermaid-container {
+  margin: 1em 0;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background-color: color-mix(in oklab, var(--muted) 50%, transparent);
+  padding: 0.75rem;
+  overflow-x: auto;
+}
+
+.markdown-content .mermaid-diagram {
+  min-height: 2rem;
+}
+
+.markdown-content .mermaid-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+.markdown-content .mermaid-loading {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.markdown-content .mermaid-error {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  color: var(--destructive);
+}
+
 .markdown-content hr {
   margin: 2em 0;
   border: none;
