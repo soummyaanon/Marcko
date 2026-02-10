@@ -58,11 +58,14 @@ export function SharedDocumentView({
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system")
   const [copiedContent, setCopiedContent] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const normalizedContent = useMemo(() => normalizeMarkdownImageHtml(content), [content])
   const hasShareLink = Boolean(documentId)
 
-
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const root = document.documentElement
@@ -154,7 +157,9 @@ export function SharedDocumentView({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Desktop View */}
+          {/* Defer Radix dropdowns until after mount to avoid hydration mismatch (React 19 + Radix useId) */}
+          {mounted ? (
+          <>
           <div className="hidden md:flex items-center gap-2">
             {hasShareLink ? (
               <DropdownMenu>
@@ -337,6 +342,8 @@ export function SharedDocumentView({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          </>
+          ) : null}
         </div>
       </header>
 
