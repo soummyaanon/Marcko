@@ -4,87 +4,211 @@ import { useState, useEffect, useCallback } from "react"
 import { MarkdownEditor } from "@/components/markdown-editor"
 import { MarkdownPreview } from "@/components/markdown-preview"
 import { EditorToolbar } from "@/components/editor-toolbar"
-import { createClient } from "@/lib/supabase/client"
-import { nanoid } from "nanoid"
+import { SharedDocumentView } from "@/components/shared-document-view"
+import { GoogleSignInModal } from "@/components/auth/google-sign-in-modal"
+import { authClient } from "@/lib/auth-client"
 import { Github, Star } from "lucide-react"
 
-const DEFAULT_MARKDOWN = `# Welcome to Marcko
+/** Bump this when you change DEFAULT_MARKDOWN to refresh the default for all users */
+const DEFAULT_CONTENT_VERSION = 1
 
-A professional markdown editor with **real-time preview** and sharing capabilities.
+const STORAGE_KEY = "marcko-content"
 
-## Features
+const DEFAULT_MARKDOWN = `<div align="center">
 
-- **Side-by-side editing**: Write markdown and see the preview instantly
-- **Full markdown support**: Headers, lists, code blocks, and more
-- **Share your work**: Generate a unique URL to share with others
-- **Copy content**: Easily copy rendered content or share links
+# Welcome to Marcko ⚡️
 
-## Code Examples
+**The **Open Source** markdown editor for developers and writers.**
 
-Inline code: \`const greeting = "Hello, World!"\`
+[Get Started Now](#) • [View on GitHub](https://github.com/soummyaanon/Marcko)
 
-Code block with syntax highlighting:
+<p align="center">
+  <video src="https://res.cloudinary.com/do33xllbd/video/upload/v1770742556/Image_Animation_with_Markdown_Preview_p1auw8.mp4?v=2" autoplay loop muted playsinline width="80%" height="auto" style="max-width: 80%; height: auto; border-radius: 12px;"></video>
+</p>
 
-\`\`\`javascript
-function fibonacci(n) {
-  if (n <= 1) return n;
-  return fibonacci(n - 1) + fibonacci(n - 2);
-}
+</div>
 
-console.log(fibonacci(10)); // 55
-\`\`\`
+<div align="justify">
 
-## Lists
+<br>
 
-### Unordered List
-- First item
-- Second item
-  - Nested item
-  - Another nested item
-- Third item
+------------
+------------
+------------
 
-### Ordered List
-1. First step
-2. Second step
-3. Third step
 
-## Blockquotes
+## ❓ The Problem & Solution
 
-> "The best way to predict the future is to invent it."
-> — Alan Kay
+**The Problem**: Most markdown editors are either too simple (missing features) or too bloated (slow). They often lock your data or lack semantic understanding.
 
-## Tables
-
-| Feature | Status |
-|---------|--------|
-| Editor | Complete |
-| Preview | Complete |
-| Sharing | Complete |
-
-## Links and Images
-
-Visit [GitHub](https://github.com) for more resources.
+**Our Solution**: Marcko. A lightweight, **open-source** editor with **real-time preview**, **syntax highlighting**, and **AI integration**. We give you full control over your data.
 
 ---
 
-Start editing to see the magic happen!
+<br>
+
+## 🚀 Key Features
+
+- **🔮 Open with AI**: Directly open your current document in **ChatGPT**, **Gemini**, or **Claude**.
+- **Real-time Preview**: Type on the left, see it on the right. Instant feedback.
+- **GitHub Flavored**: We support tables, task lists, strikethrough, and more.
+- **Math Support**: Render complex equations with KaTeX.
+- **Syntax Highlighting**: Beautiful code blocks for your technical writing.
+- **Share Instantly**: Create a unique link to share your work with the world.
+
+
+<br>
+
+## 🎨 Demo
+
+### 1. Images & HTML
+
+We support raw HTML and images!
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/92f9b0bd-6d86-4a69-869c-a8f1e2e9bf61" alt="soummyaanon-space-shooter" />
+</p>
+
+### 2. Code Syntax Highlighting
+
+\`\`\`typescript
+interface User {
+  id: number;
+  name: string;
+  role: 'admin' | 'user';
+}
+
+function greet(user: User): string {
+  return \`Hello, \${user.name}! You are logged in as \${user.role}.\`;
+}
+\`\`\`
+
+### 3. Mathematical Equations
+
+We render math using **KaTeX**:
+
+The quadratic formula is $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$
+
+Maxwell's equations:
+$$
+\\nabla \\cdot \\mathbf{E} = \\frac{\rho}{\\varepsilon_0}
+$$
+
+### 4. Mermaid Diagrams
+
+\`\`\`mermaid
+graph TD
+    A[Start] --> B{Is it working?}
+    B -- Yes --> C[Great!]
+    B -- No --> D[Debug]
+    D --> B
+\`\`\`
+
+### 5. GFM Tables
+
+| Feature | Support | Description |
+| :--- | :---: | :--- |
+| **Tables** | ✅ | Neat data organization |
+| **Task Lists** | ✅ | Manage your to-dos |
+| **Strikethrough** | ✅ | ~~Mistakes~~ Corrections |
+
+### 6. Task Lists
+
+- [x] Create a new document
+- [x] Write some cool markdown
+- [x] Share with friends
+- [ ] Star Marcko on GitHub ⭐️
+
+
+<br>
+
+## 🌐 Sharing Features
+
+### Share Your Work
+Easily generate a unique public URL for your markdown.
+- **First share is free!** No account needed.
+- **Sign in with Google** to create unlimited shares.
+
+</div>
+
+---
+
+<p align="center">
+     <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=100&section=footer"/>
+</p>
 `
+
+const PENDING_SHARE_STORAGE_KEY = "marcko-pending-share"
+
+type ShareApiResponse = {
+  id: string
+  shareUrl: string
+  requiresAuthNextShare?: boolean
+}
+
+type ApiErrorResponse = {
+  message?: string
+  code?: string
+  authRequired?: boolean
+  error?: {
+    code?: string
+    detail?: string
+    hint?: string | null
+  }
+}
+
+const createAuthRequiredError = (message: string) => {
+  const error = new Error(message) as Error & { code: "AUTH_REQUIRED" }
+  error.code = "AUTH_REQUIRED"
+  return error
+}
+
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 
 export default function Home() {
   const [markdown, setMarkdown] = useState(DEFAULT_MARKDOWN)
+  const [showFullPreview, setShowFullPreview] = useState(false)
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system")
-  const supabase = createClient()
+  const [showSignInModal, setShowSignInModal] = useState(false)
+  const [shareTriggerToken, setShareTriggerToken] = useState(0)
+  const [shareWarning, setShareWarning] = useState<string | null>(null)
+  const [direction, setDirection] = useState<"horizontal" | "vertical">("horizontal")
+  const { data: session, isPending: isSessionPending } = authClient.useSession()
+  const sessionUser =
+    (session as {
+      user?: { id?: string | null; name?: string | null; email?: string | null; image?: string | null } | null
+    } | null)?.user ??
+    (session as {
+      data?: {
+        user?: { id?: string | null; name?: string | null; email?: string | null; image?: string | null } | null
+      } | null
+    } | null)?.data?.user ??
+    null
 
   useEffect(() => {
-    const savedContent = localStorage.getItem("marcko-content")
-    if (savedContent) {
-      setMarkdown(savedContent)
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as { content?: string; defaultVersion?: number }
+      const savedVersion = parsed.defaultVersion ?? 0
+      if (savedVersion >= DEFAULT_CONTENT_VERSION && typeof parsed.content === "string") {
+        setMarkdown(parsed.content)
+      }
+    } catch {
+      // Invalid or old format — use default
     }
   }, [])
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      localStorage.setItem("marcko-content", markdown)
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ content: markdown, defaultVersion: DEFAULT_CONTENT_VERSION }),
+        )
+      } catch {
+        // Storage full or disabled
+      }
     }, 500)
     return () => clearTimeout(timeoutId)
   }, [markdown])
@@ -109,40 +233,129 @@ export default function Home() {
     return () => mediaQuery.removeEventListener("change", handleChange)
   }, [theme])
 
-  const handleShare = useCallback(async (): Promise<string> => {
-    const id = nanoid(10)
+  useEffect(() => {
+    const checkDirection = () => {
+      setDirection(window.innerWidth < 768 ? "vertical" : "horizontal")
+    }
     
-    const { error } = await supabase
-      .from("documents")
-      .insert({
-        id,
-        content: markdown,
-      })
+    checkDirection()
+    window.addEventListener("resize", checkDirection)
+    return () => window.removeEventListener("resize", checkDirection)
+  }, [])
 
-    if (error) {
-      throw new Error("Failed to save document")
+  const requestShare = useCallback(async (content: string): Promise<string> => {
+    const response = await fetch("/api/share", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ content }),
+    })
+
+    if (!response.ok) {
+      const errorData = (await response.json().catch(() => null)) as ApiErrorResponse | null
+      if (response.status === 403 && errorData?.code === "AUTH_REQUIRED") {
+        throw createAuthRequiredError(
+          errorData.message || "Please sign in with Google to create more shares.",
+        )
+      }
+
+      const debugSuffix =
+        errorData?.error?.code || errorData?.error?.detail
+          ? ` (${errorData.error?.code || "UNKNOWN"}: ${errorData.error?.detail || "no detail"})`
+          : ""
+      throw new Error((errorData?.message || "Failed to share document") + debugSuffix)
     }
 
-    const shareUrl = `${window.location.origin}/share/${id}`
-    return shareUrl
-  }, [markdown, supabase])
+    const data = (await response.json()) as ShareApiResponse
+    if (data.requiresAuthNextShare) {
+      setShareWarning("Free guest share used. Sign in with Google for your next share.")
+    } else {
+      setShareWarning(null)
+    }
+    return data.shareUrl
+  }, [])
+
+  const handleShare = useCallback(async (): Promise<string> => {
+    return requestShare(markdown)
+  }, [markdown, requestShare])
+
+  const handleShareAuthRequired = useCallback(() => {
+    localStorage.setItem(PENDING_SHARE_STORAGE_KEY, "1")
+    setShowSignInModal(true)
+    setShareWarning("Second share requires Google sign-in.")
+  }, [])
+
+  const handleSignOut = useCallback(async () => {
+    await authClient.signOut()
+    setShareWarning(null)
+  }, [])
+
+  const handleDeleteAccount = useCallback(async () => {
+    await authClient.deleteUser({
+      callbackURL: window.location.origin,
+    })
+    setShareWarning(null)
+    localStorage.removeItem(PENDING_SHARE_STORAGE_KEY)
+  }, [])
+
+  useEffect(() => {
+    if (isSessionPending) return
+    if (!sessionUser) return
+
+    const shouldResumeShare = localStorage.getItem(PENDING_SHARE_STORAGE_KEY) === "1"
+    if (!shouldResumeShare) return
+
+    localStorage.removeItem(PENDING_SHARE_STORAGE_KEY)
+    setShowSignInModal(false)
+    setShareTriggerToken((previous) => previous + 1)
+    setShareWarning(null)
+  }, [isSessionPending, sessionUser])
+
+  if (showFullPreview) {
+    return (
+      <SharedDocumentView
+        content={markdown}
+        onBackToEditor={() => setShowFullPreview(false)}
+      />
+    )
+  }
 
   return (
     <div className="fixed inset-0 flex flex-col bg-background overflow-hidden">
       <EditorToolbar 
-        onShare={handleShare} 
+        onShare={handleShare}
+        onShareAuthRequired={handleShareAuthRequired}
         theme={theme} 
-        onThemeChange={setTheme} 
+        onThemeChange={setTheme}
+        isAuthenticated={Boolean(sessionUser)}
+        isAuthLoading={isSessionPending}
+        onSignIn={() => setShowSignInModal(true)}
+        onSignOut={handleSignOut}
+        onDeleteAccount={handleDeleteAccount}
+        userName={sessionUser?.name ?? null}
+        userEmail={sessionUser?.email ?? null}
+        userImage={sessionUser?.image ?? null}
+        shareTriggerToken={shareTriggerToken}
+        shareWarning={shareWarning}
       />
       
-      <main className="flex flex-1 flex-col overflow-hidden md:flex-row">
-        <div className="flex h-1/2 flex-col border-b border-border md:h-full md:w-1/2 md:border-b-0 md:border-r">
-          <MarkdownEditor value={markdown} onChange={setMarkdown} />
-        </div>
-        
-        <div className="flex h-1/2 flex-col md:h-full md:w-1/2">
-          <MarkdownPreview content={markdown} />
-        </div>
+      <main className="flex flex-1 flex-col overflow-hidden">
+        <ResizablePanelGroup direction={direction}>
+          <ResizablePanel defaultSize={50} minSize={30}>
+            <div className="flex h-full flex-col border-r border-border">
+              <MarkdownEditor value={markdown} onChange={setMarkdown} />
+            </div>
+          </ResizablePanel>
+          
+          <ResizableHandle withHandle />
+          
+          <ResizablePanel defaultSize={50} minSize={30}>
+            <div className="flex h-full flex-col">
+              <MarkdownPreview content={markdown} onOpenPreview={() => setShowFullPreview(true)} />
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </main>
 
       <footer className="border-t border-border bg-muted/30 px-4 py-2 md:px-6"> 
@@ -176,6 +389,8 @@ export default function Home() {
           </a>
         </div>
       </footer>
+
+      <GoogleSignInModal open={showSignInModal} onOpenChange={setShowSignInModal} />
     </div>
   )
 }

@@ -46,6 +46,45 @@ pnpm install
 pnpm dev
 ```
 
+### Environment Variables
+
+Create a `.env` file with:
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_SECRET=your-long-secret
+BETTER_AUTH_DATABASE_URL=postgresql://...
+BETTER_AUTH_DB_SSL_REJECT_UNAUTHORIZED=false
+GUEST_SHARE_ABUSE_BUCKET_DAYS=7
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+```
+
+`BETTER_AUTH_DATABASE_URL` should be your Supabase Postgres connection string.
+Use the Supabase database URL from project settings (prefer the pooler URL for hosted environments).
+Set `BETTER_AUTH_DB_SSL_REJECT_UNAUTHORIZED=true` in production if your environment has a trusted CA chain configured.
+`GUEST_SHARE_ABUSE_BUCKET_DAYS` controls how long an anonymous device/network fingerprint is blocked after using the one free guest share.
+
+### Database Setup
+
+Run existing document schema and the new share-limit migration in Supabase SQL editor:
+
+```sql
+-- scripts/001_create_documents.sql
+-- scripts/002_add_share_limits_and_document_owner.sql
+```
+
+Google OAuth redirect URI:
+
+```txt
+http://localhost:3000/api/auth/callback/google
+```
+
 ### Building for Production
 
 ```bash

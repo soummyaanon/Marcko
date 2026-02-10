@@ -7,8 +7,23 @@ import remarkMath from "remark-math"
 import remarkBreaks from "remark-breaks"
 import rehypeKatex from "rehype-katex"
 import rehypeHighlight from "rehype-highlight"
+import rehypeRaw from "rehype-raw"
 import "katex/dist/katex.min.css"
-import { Check, Copy, FileText, Moon, Sun, Monitor, Link, Pencil, Github, Star, Bot, Menu } from "lucide-react"
+import {
+  ArrowLeft,
+  Check,
+  Copy,
+  FileText,
+  Moon,
+  Sun,
+  Monitor,
+  Link,
+  Pencil,
+  Github,
+  Star,
+  Bot,
+  Menu,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -27,15 +42,21 @@ import { normalizeMarkdownImageHtml } from "@/lib/markdown"
 
 interface SharedDocumentViewProps {
   content: string
-  documentId: string
+  documentId?: string
+  onBackToEditor?: () => void
 }
 
-export function SharedDocumentView({ content, documentId }: SharedDocumentViewProps) {
+export function SharedDocumentView({
+  content,
+  documentId,
+  onBackToEditor,
+}: SharedDocumentViewProps) {
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system")
   const [copiedContent, setCopiedContent] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const normalizedContent = useMemo(() => normalizeMarkdownImageHtml(content), [content])
+  const hasShareLink = Boolean(documentId)
 
 
 
@@ -72,6 +93,7 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
   }
 
   const openInApp = async (agent: "chatgpt" | "claude" | "perplexity") => {
+    if (!documentId) return
     const shareUrl = `${window.location.origin}/share/${documentId}`
     await navigator.clipboard.writeText(shareUrl)
     setCopiedLink(true)
@@ -96,6 +118,7 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
   }
 
   const copyLink = async () => {
+    if (!documentId) return
     const url = `${window.location.origin}/share/${documentId}`
     await navigator.clipboard.writeText(url)
     setCopiedLink(true)
@@ -106,13 +129,22 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
     <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:px-6">
         <div className="flex items-center gap-3">
+          {onBackToEditor ? (
+            <Button variant="ghost" size="sm" onClick={onBackToEditor} className="gap-1.5">
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back</span>
+            </Button>
+          ) : null}
+
           <a href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <FileText className="h-4 w-4 text-primary-foreground" />
             </div>
             <div>
               <h1 className="text-lg font-semibold text-foreground">Marcko</h1>
-              <p className="hidden text-xs text-muted-foreground sm:block">Shared Document</p>
+              <p className="hidden text-xs text-muted-foreground sm:block">
+                {onBackToEditor ? "Preview" : "Shared Document"}
+              </p>
             </div>
           </a>
         </div>
@@ -120,28 +152,30 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
         <div className="flex items-center gap-2">
           {/* Desktop View */}
           <div className="hidden md:flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1.5 hidden sm:flex">
-                  <Bot className="h-4 w-4" />
-                  <span className="hidden lg:inline">Open with AI</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => openInApp("chatgpt")}>
-                  <OpenAI className="mr-2 h-4 w-4" />
-                  ChatGPT
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openInApp("claude")}>
-                  <ClaudeAI className="mr-2 h-4 w-4" />
-                  Claude
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openInApp("perplexity")}>
-                  <PerplexityAI className="mr-2 h-4 w-4" />
-                  Perplexity (Research)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {hasShareLink ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-1.5 hidden sm:flex">
+                    <Bot className="h-4 w-4" />
+                    <span className="hidden lg:inline">Open with AI</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => openInApp("chatgpt")}>
+                    <OpenAI className="mr-2 h-4 w-4" />
+                    ChatGPT
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openInApp("claude")}>
+                    <ClaudeAI className="mr-2 h-4 w-4" />
+                    Claude
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openInApp("perplexity")}>
+                    <PerplexityAI className="mr-2 h-4 w-4" />
+                    Perplexity (Research)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -168,24 +202,26 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={copyLink}
-              className="gap-1.5"
-            >
-              {copiedLink ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  <span className="hidden sm:inline">Copied</span>
-                </>
-              ) : (
-                <>
-                  <Link className="h-4 w-4" />
-                  <span className="hidden sm:inline">Copy Link</span>
-                </>
-              )}
-            </Button>
+            {hasShareLink ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={copyLink}
+                className="gap-1.5"
+              >
+                {copiedLink ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    <span className="hidden sm:inline">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Link className="h-4 w-4" />
+                    <span className="hidden sm:inline">Copy Link</span>
+                  </>
+                )}
+              </Button>
+            ) : null}
 
             <Button
               variant="ghost"
@@ -206,12 +242,19 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
               )}
             </Button>
 
-            <Button asChild size="sm" className="gap-1.5">
-              <a href="/">
+            {onBackToEditor ? (
+              <Button size="sm" className="gap-1.5" onClick={onBackToEditor}>
                 <Pencil className="h-4 w-4" />
-                <span className="hidden sm:inline">New Document</span>
-              </a>
-            </Button>
+                <span className="hidden sm:inline">Back to Editor</span>
+              </Button>
+            ) : (
+              <Button asChild size="sm" className="gap-1.5">
+                <a href="/">
+                  <Pencil className="h-4 w-4" />
+                  <span className="hidden sm:inline">New Document</span>
+                </a>
+              </Button>
+            )}
           </div>
 
           {/* Mobile View */}
@@ -224,22 +267,25 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Open with AI</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => openInApp("chatgpt")}>
-                  <OpenAI className="mr-2 h-4 w-4" />
-                  ChatGPT
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openInApp("claude")}>
-                  <ClaudeAI className="mr-2 h-4 w-4" />
-                  Claude
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openInApp("perplexity")}>
-                  <PerplexityAI className="mr-2 h-4 w-4" />
-                  Perplexity
-                </DropdownMenuItem>
-                
-                <DropdownMenuSeparator />
-                
+                {hasShareLink ? (
+                  <>
+                    <DropdownMenuLabel>Open with AI</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => openInApp("chatgpt")}>
+                      <OpenAI className="mr-2 h-4 w-4" />
+                      ChatGPT
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openInApp("claude")}>
+                      <ClaudeAI className="mr-2 h-4 w-4" />
+                      Claude
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openInApp("perplexity")}>
+                      <PerplexityAI className="mr-2 h-4 w-4" />
+                      Perplexity
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                ) : null}
+
                 <DropdownMenuLabel>Theme</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => setTheme("light")}>
                   <Sun className="mr-2 h-4 w-4" />
@@ -254,12 +300,15 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
                   System
                 </DropdownMenuItem>
 
-                <DropdownMenuSeparator />
-
-                <DropdownMenuItem onClick={copyLink}>
-                  {copiedLink ? <Check className="mr-2 h-4 w-4" /> : <Link className="mr-2 h-4 w-4" />}
-                  <span>{copiedLink ? "Copied" : "Copy Link"}</span>
-                </DropdownMenuItem>
+                {hasShareLink ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={copyLink}>
+                      {copiedLink ? <Check className="mr-2 h-4 w-4" /> : <Link className="mr-2 h-4 w-4" />}
+                      <span>{copiedLink ? "Copied" : "Copy Link"}</span>
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
 
                 <DropdownMenuItem onClick={copyContent}>
                   {copiedContent ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
@@ -268,12 +317,19 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem asChild>
-                  <a href="/">
-                    <Pencil className="mr-2 h-4 w-4" />
-                    <span>New Document</span>
-                  </a>
-                </DropdownMenuItem>
+                {onBackToEditor ? (
+                  <DropdownMenuItem onClick={onBackToEditor}>
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    <span>Back to Editor</span>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem asChild>
+                    <a href="/">
+                      <Pencil className="mr-2 h-4 w-4" />
+                      <span>New Document</span>
+                    </a>
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -288,7 +344,7 @@ export function SharedDocumentView({ content, documentId }: SharedDocumentViewPr
           >
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
-              rehypePlugins={[rehypeKatex, rehypeHighlight]}
+              rehypePlugins={[rehypeKatex, rehypeHighlight, rehypeRaw]}
               components={markdownComponentsWithMermaid}
             >
               {normalizedContent}

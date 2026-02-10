@@ -1,12 +1,25 @@
 "use client"
 
-import { useState } from "react"
-import { Share2, Link, Check, Loader2, FileText, Moon, Sun, Monitor } from "lucide-react"
+import { useEffect, useState } from "react"
+import {
+  Share2,
+  Link,
+  Check,
+  Loader2,
+  FileText,
+  Moon,
+  Sun,
+  Monitor,
+  LogOut,
+  Trash2,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -20,12 +33,49 @@ import { Input } from "@/components/ui/input"
 
 interface EditorToolbarProps {
   onShare: () => Promise<string>
+  onShareAuthRequired: () => void
   theme: "light" | "dark" | "system"
   onThemeChange: (theme: "light" | "dark" | "system") => void
+  isAuthenticated: boolean
+  isAuthLoading: boolean
+  onSignIn: () => void
+  onSignOut: () => Promise<void>
+  onDeleteAccount: () => Promise<void>
+  userName?: string | null
+  userEmail?: string | null
+  userImage?: string | null
+  shareTriggerToken?: number
+  shareWarning?: string | null
 }
 
-export function EditorToolbar({ onShare, theme, onThemeChange }: EditorToolbarProps) {
+const isAuthRequiredError = (error: unknown): boolean => {
+  return (
+    !!error &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { code?: string }).code === "AUTH_REQUIRED"
+  )
+}
+
+export function EditorToolbar({
+  onShare,
+  onShareAuthRequired,
+  theme,
+  onThemeChange,
+  isAuthenticated,
+  isAuthLoading,
+  onSignIn,
+  onSignOut,
+  onDeleteAccount,
+  userName = null,
+  userEmail = null,
+  userImage = null,
+  shareTriggerToken = 0,
+  shareWarning = null,
+}: EditorToolbarProps) {
   const [isSharing, setIsSharing] = useState(false)
+  const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [showDialog, setShowDialog] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -37,11 +87,54 @@ export function EditorToolbar({ onShare, theme, onThemeChange }: EditorToolbarPr
       setShareUrl(url)
       setShowDialog(true)
     } catch (error) {
+      if (isAuthRequiredError(error)) {
+        onShareAuthRequired()
+        return
+      }
       console.error("Failed to share:", error)
     } finally {
       setIsSharing(false)
     }
   }
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true)
+    try {
+      await onSignOut()
+    } catch (error) {
+      console.error("Failed to sign out:", error)
+    } finally {
+      setIsSigningOut(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("Delete your account permanently? This cannot be undone.")) {
+      return
+    }
+
+    setIsDeletingAccount(true)
+    try {
+      await onDeleteAccount()
+    } catch (error) {
+      console.error("Failed to delete account:", error)
+    } finally {
+      setIsDeletingAccount(false)
+    }
+  }
+
+  const avatarText = (() => {
+    const source = (userName || userEmail || "U").trim()
+    if (!source) return "U"
+    return source.slice(0, 2).toUpperCase()
+  })()
+
+  useEffect(() => {
+    if (shareTriggerToken > 0) {
+      void handleShare()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shareTriggerToken])
 
   const copyShareLink = async () => {
     if (shareUrl) {
@@ -108,8 +201,77 @@ export function EditorToolbar({ onShare, theme, onThemeChange }: EditorToolbarPr
               </>
             )}
           </Button>
+          {isAuthLoading ? (
+            <Button variant="outline" size="sm" disabled className="gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Checking...</span>
+            </Button>
+          ) : isAuthenticated ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 overflow-hidden rounded-full border border-border p-0"
+                >
+                  {userImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={userImage}
+                      alt={userName || "User"}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs font-semibold">{avatarText}</span>
+                  )}
+                  <span className="sr-only">Open account menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="space-y-0.5">
+                  <p className="truncate text-sm font-medium">{userName || "Account"}</p>
+                  {userEmail ? (
+                    <p className="truncate text-xs font-normal text-muted-foreground">
+                      {userEmail}
+                    </p>
+                  ) : null}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  disabled={isSigningOut || isDeletingAccount}
+                  className="gap-2"
+                >
+                  {isSigningOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut />}
+                  <span>Log out</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleDeleteAccount}
+                  disabled={isSigningOut || isDeletingAccount}
+                  variant="destructive"
+                  className="gap-2"
+                >
+                  {isDeletingAccount ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 />
+                  )}
+                  <span>Delete account</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button variant="outline" size="sm" onClick={onSignIn}>
+              <span>Log in</span>
+            </Button>
+          )}
         </div>
       </header>
+      {shareWarning ? (
+        <div className="border-b border-amber-500/30 bg-amber-100 px-4 py-2 text-xs text-amber-900 md:px-6 dark:bg-amber-900/30 dark:text-amber-100">
+          {shareWarning}
+        </div>
+      ) : null}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="sm:max-w-md">
