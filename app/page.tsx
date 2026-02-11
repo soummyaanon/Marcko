@@ -10,7 +10,7 @@ import { authClient } from "@/lib/auth-client"
 import { Github, Star } from "lucide-react"
 
 /** Bump this when you change DEFAULT_MARKDOWN to refresh the default for all users */
-const DEFAULT_CONTENT_VERSION = 1
+const DEFAULT_CONTENT_VERSION = 3
 
 const STORAGE_KEY = "marcko-content"
 
@@ -19,6 +19,8 @@ const DEFAULT_MARKDOWN = `<div align="center">
 # Welcome to Marcko ⚡️
 
 **The **Open Source** markdown editor for developers and writers.**
+
+**Now with secure sharing: authenticated link creation + encryption at rest.**
 
 [Get Started Now](#) • [View on GitHub](https://github.com/soummyaanon/Marcko)
 
@@ -39,9 +41,16 @@ const DEFAULT_MARKDOWN = `<div align="center">
 
 ## ❓ The Problem & Solution
 
-**The Problem**: Most markdown editors are either too simple (missing features) or too bloated (slow). They often lock your data or lack semantic understanding.
+**The Problem**: Most markdown editors focus on writing speed but treat sharing and security as an afterthought. That leaves teams choosing between convenience and trust.
 
-**Our Solution**: Marcko. A lightweight, **open-source** editor with **real-time preview**, **syntax highlighting**, and **AI integration**. We give you full control over your data.
+**Our Solution**: Marcko combines a fast writing experience with **security-first sharing**. Only authenticated users can create share links, and shared content is encrypted at rest. You ship docs faster without compromising data protection.
+
+### 🔒 Security You Can Trust
+
+- **Authenticated sharing**: only signed-in users can generate public links.
+- **Encryption at rest**: shared content is encrypted before it is stored.
+- **Controlled visibility**: recipients can read only with the exact share URL.
+- **Audit-friendly history**: creators can track and reopen previously shared links.
 
 ---
 
@@ -49,6 +58,7 @@ const DEFAULT_MARKDOWN = `<div align="center">
 
 ## 🚀 Key Features
 
+- **🔐 Secure by Default**: Shared docs are encrypted at rest and only signed-in users can create share links.
 - **🔮 Open with AI**: Directly open your current document in **ChatGPT**, **Gemini**, or **Claude**.
 - **Real-time Preview**: Type on the left, see it on the right. Instant feedback.
 - **GitHub Flavored**: We support tables, task lists, strikethrough, and more.
@@ -126,8 +136,9 @@ graph TD
 
 ### Share Your Work
 Easily generate a unique public URL for your markdown.
-- **First share is free!** No account needed.
-- **Sign in with Google** to create unlimited shares.
+- **Encrypted at rest**: Shared document content is encrypted before storage.
+- **Only signed-in users can share** documents.
+- **Sign in with Google** to create share links.
 
 </div>
 
@@ -143,7 +154,10 @@ const PENDING_SHARE_STORAGE_KEY = "marcko-pending-share"
 type ShareApiResponse = {
   id: string
   shareUrl: string
-  requiresAuthNextShare?: boolean
+}
+
+type DraftApiResponse = {
+  content?: string | null
 }
 
 type ApiErrorResponse = {
@@ -173,6 +187,7 @@ export default function Home() {
   const [shareTriggerToken, setShareTriggerToken] = useState(0)
   const [shareWarning, setShareWarning] = useState<string | null>(null)
   const [direction, setDirection] = useState<"horizontal" | "vertical">("horizontal")
+  const [isDraftReady, setIsDraftReady] = useState(false)
   const { data: session, isPending: isSessionPending } = authClient.useSession()
   const sessionUser =
     (session as {
@@ -243,6 +258,65 @@ export default function Home() {
     return () => window.removeEventListener("resize", checkDirection)
   }, [])
 
+  useEffect(() => {
+    if (isSessionPending) return
+
+    if (!sessionUser?.id) {
+      setIsDraftReady(false)
+      return
+    }
+
+    let isCancelled = false
+
+    const loadDraft = async () => {
+      try {
+        const response = await fetch("/api/draft", {
+          method: "GET",
+          cache: "no-store",
+        })
+
+        if (!response.ok) return
+
+        const data = (await response.json()) as DraftApiResponse
+        if (isCancelled) return
+
+        if (typeof data.content === "string") {
+          setMarkdown(data.content)
+        }
+      } catch (error) {
+        console.error("Failed to load secure draft:", error)
+      } finally {
+        if (!isCancelled) {
+          setIsDraftReady(true)
+        }
+      }
+    }
+
+    void loadDraft()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [isSessionPending, sessionUser?.id])
+
+  useEffect(() => {
+    if (!sessionUser?.id || !isDraftReady) return
+
+    const timeoutId = setTimeout(() => {
+      void fetch("/api/draft", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ content: markdown }),
+      }).catch((error) => {
+        console.error("Failed to save secure draft:", error)
+      })
+    }, 700)
+
+    return () => clearTimeout(timeoutId)
+  }, [markdown, sessionUser?.id, isDraftReady])
+
   const requestShare = useCallback(async (content: string): Promise<string> => {
     const response = await fetch("/api/share", {
       method: "POST",
@@ -256,7 +330,7 @@ export default function Home() {
       const errorData = (await response.json().catch(() => null)) as ApiErrorResponse | null
       if (response.status === 403 && errorData?.code === "AUTH_REQUIRED") {
         throw createAuthRequiredError(
-          errorData.message || "Please sign in with Google to create more shares.",
+          errorData.message || "Please sign in with Google to share documents.",
         )
       }
 
@@ -268,11 +342,7 @@ export default function Home() {
     }
 
     const data = (await response.json()) as ShareApiResponse
-    if (data.requiresAuthNextShare) {
-      setShareWarning("Free guest share used. Sign in with Google for your next share.")
-    } else {
-      setShareWarning(null)
-    }
+    setShareWarning(null)
     return data.shareUrl
   }, [])
 
@@ -283,7 +353,7 @@ export default function Home() {
   const handleShareAuthRequired = useCallback(() => {
     localStorage.setItem(PENDING_SHARE_STORAGE_KEY, "1")
     setShowSignInModal(true)
-    setShareWarning("Second share requires Google sign-in.")
+    setShareWarning("Sign in with Google to share documents.")
   }, [])
 
   const handleSignOut = useCallback(async () => {

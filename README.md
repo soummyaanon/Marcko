@@ -60,7 +60,7 @@ BETTER_AUTH_URL=http://localhost:3000
 BETTER_AUTH_SECRET=your-long-secret
 BETTER_AUTH_DATABASE_URL=postgresql://...
 BETTER_AUTH_DB_SSL_REJECT_UNAUTHORIZED=false
-GUEST_SHARE_ABUSE_BUCKET_DAYS=7
+DOCUMENT_ENCRYPTION_KEY=replace-with-a-long-random-secret
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 ```
@@ -68,7 +68,8 @@ GOOGLE_CLIENT_SECRET=...
 `BETTER_AUTH_DATABASE_URL` should be your Supabase Postgres connection string.
 Use the Supabase database URL from project settings (prefer the pooler URL for hosted environments).
 Set `BETTER_AUTH_DB_SSL_REJECT_UNAUTHORIZED=true` in production if your environment has a trusted CA chain configured.
-`GUEST_SHARE_ABUSE_BUCKET_DAYS` controls how long an anonymous device/network fingerprint is blocked after using the one free guest share.
+`DOCUMENT_ENCRYPTION_KEY` is used to encrypt shared document content at rest in the database and is required in production.
+Signed-in users also get encrypted server-side draft autosave via `/api/draft`.
 
 ### Database Setup
 

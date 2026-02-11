@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import { authDbPool } from "@/lib/auth"
 import { SharedDocumentView } from "@/components/shared-document-view"
+import { decryptStoredContent } from "@/lib/secure-content"
 
 interface SharePageProps {
   params: Promise<{ id: string }>
@@ -35,6 +36,16 @@ async function getDocumentWithOwner(id: string) {
   return result.rows[0] ?? null
 }
 
+const getDecodedContent = (rawContent: unknown): string => {
+  const content = String(rawContent ?? "")
+  try {
+    return decryptStoredContent(content)
+  } catch {
+    // Fallback for any malformed legacy row.
+    return content
+  }
+}
+
 export async function generateMetadata({ params }: SharePageProps) {
   const { id } = await params
   const doc = await getDocumentWithOwner(id)
@@ -45,7 +56,7 @@ export async function generateMetadata({ params }: SharePageProps) {
     }
   }
 
-  const firstLine = (doc.content as string).split("\n")[0].replace(/^#\s*/, "").trim()
+  const firstLine = getDecodedContent(doc.content).split("\n")[0].replace(/^#\s*/, "").trim()
   const title = firstLine || "Shared Document"
 
   return {
@@ -62,6 +73,8 @@ export default async function SharePage({ params }: SharePageProps) {
     notFound()
   }
 
+  const decodedContent = getDecodedContent(doc.content)
+
   const sharedBy: { type: "guest" } | { type: "user"; name: string } =
     doc.user_id && doc.owner_name
       ? { type: "user", name: String(doc.owner_name) }
@@ -71,7 +84,7 @@ export default async function SharePage({ params }: SharePageProps) {
 
   return (
     <SharedDocumentView
-      content={doc.content as string}
+      content={decodedContent}
       documentId={id}
       sharedBy={sharedBy}
     />

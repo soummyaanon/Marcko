@@ -44,11 +44,11 @@ export function GoogleSignInModal({ open, onOpenChange }: GoogleSignInModalProps
 
           <DialogHeader className="mb-4 space-y-2 text-center sm:text-center w-full">
             <DialogTitle className="text-2xl font-bold tracking-tight">
-              Unlock Unlimited Sharing
+              Sign In To Share
             </DialogTitle>
             <p className="text-muted-foreground">
-              You've used your free guest share! <br />
-              Sign in to keep sharing your amazing work.
+              Sharing links requires an authenticated account. <br />
+              Sign in with Google to continue.
             </p>
           </DialogHeader>
 
