@@ -10,7 +10,7 @@ import { authClient } from "@/lib/auth-client"
 import { Github, Star } from "lucide-react"
 
 /** Bump this when you change DEFAULT_MARKDOWN to refresh the default for all users */
-const DEFAULT_CONTENT_VERSION = 3
+const DEFAULT_CONTENT_VERSION = 4
 
 const STORAGE_KEY = "marcko-content"
 
@@ -20,7 +20,7 @@ const DEFAULT_MARKDOWN = `<div align="center">
 
 **The **Open Source** markdown editor for developers and writers.**
 
-**Now with secure sharing: authenticated link creation + encryption at rest.**
+**Enterprise-ready secure sharing: authenticated link creation, encryption at rest, and link revocation controls.**
 
 [Get Started Now](#) • [View on GitHub](https://github.com/soummyaanon/Marcko)
 
@@ -50,7 +50,13 @@ const DEFAULT_MARKDOWN = `<div align="center">
 - **Authenticated sharing**: only signed-in users can generate public links.
 - **Encryption at rest**: shared content is encrypted before it is stored.
 - **Controlled visibility**: recipients can read only with the exact share URL.
-- **Audit-friendly history**: creators can track and reopen previously shared links.
+- **Governance controls**: creators can track, reopen, and revoke shared links.
+
+### 🏢 Enterprise Readiness
+
+- **Security baseline**: encrypted storage + authenticated sharing by default.
+- **Operational control**: revoke links instantly from history.
+- **Collaboration at scale**: simple public viewing for intended recipients.
 
 ---
 

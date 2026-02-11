@@ -14,6 +14,7 @@ import {
   Trash2,
   History,
   ExternalLink,
+  ShieldCheck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -104,6 +105,7 @@ export function EditorToolbar({
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [isHistoryLoading, setIsHistoryLoading] = useState(false)
   const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null)
+  const [revokingHistoryId, setRevokingHistoryId] = useState<string | null>(null)
 
   const handleShare = async () => {
     setIsSharing(true)
@@ -217,6 +219,34 @@ export function EditorToolbar({
     setTimeout(() => setCopiedHistoryId(null), 2000)
   }
 
+  const revokeHistoryLink = async (id: string) => {
+    if (!window.confirm("Revoke this shared link? People with this URL will no longer be able to view it.")) {
+      return
+    }
+
+    setRevokingHistoryId(id)
+    try {
+      const response = await fetch(`/api/share?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const errorData = (await response.json().catch(() => null)) as { message?: string } | null
+        throw new Error(errorData?.message || "Failed to revoke shared link")
+      }
+
+      setHistoryItems((previous) => previous.filter((item) => item.id !== id))
+      if (copiedHistoryId === id) {
+        setCopiedHistoryId(null)
+      }
+    } catch (error) {
+      console.error("Failed to revoke shared link:", error)
+      setHistoryError("Unable to revoke this link right now.")
+    } finally {
+      setRevokingHistoryId(null)
+    }
+  }
+
   useEffect(() => {
     if (isAuthenticated) return
     setShowHistoryDialog(false)
@@ -235,6 +265,10 @@ export function EditorToolbar({
           <div>
             <h1 className="text-lg font-semibold text-foreground">Marcko</h1>
             <p className="hidden text-xs text-muted-foreground sm:block">Markdown Editor</p>
+          </div>
+          <div className="hidden items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 md:flex dark:text-emerald-300">
+            <ShieldCheck className="h-3 w-3" />
+            <span>Enterprise Secure</span>
           </div>
         </div>
 
@@ -413,7 +447,7 @@ export function EditorToolbar({
           <DialogHeader>
             <DialogTitle>Your share history</DialogTitle>
             <DialogDescription>
-              Reopen any document you have already shared.
+              Reopen or revoke any document link you have already shared.
             </DialogDescription>
           </DialogHeader>
 
@@ -421,6 +455,7 @@ export function EditorToolbar({
             <div className="rounded-md border border-amber-500/30 bg-amber-100/70 p-3 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
               Privacy note: Shared documents are stored so links and history work.
               Anyone with the share link can view that document, so avoid sensitive data.
+              You can revoke links anytime from this panel.
             </div>
             {isHistoryLoading ? (
               <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
@@ -484,6 +519,25 @@ export function EditorToolbar({
                           <>
                             <Link className="h-4 w-4" />
                             <span className="text-xs">Copy</span>
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => void revokeHistoryLink(item.id)}
+                        disabled={revokingHistoryId === item.id}
+                      >
+                        {revokingHistoryId === item.id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-xs">Revoking</span>
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="text-xs">Revoke</span>
                           </>
                         )}
                       </Button>

@@ -251,3 +251,40 @@ export async function POST(request: NextRequest) {
     shareUrl: buildShareUrl(request, documentId),
   })
 }
+
+export async function DELETE(request: NextRequest) {
+  await ensureAuthSchema()
+  await ensureShareSchema()
+
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  })
+  const userId = session?.user?.id ?? null
+  if (!userId) {
+    return authRequiredResponse()
+  }
+
+  const documentId = request.nextUrl.searchParams.get("id")?.trim() ?? ""
+  if (!documentId) {
+    return NextResponse.json({ message: "Document id is required." }, { status: 400 })
+  }
+
+  try {
+    const result = await authDbPool.query(
+      `
+      DELETE FROM documents
+      WHERE id = $1 AND user_id = $2
+      RETURNING id
+      `,
+      [documentId, userId],
+    )
+
+    if (result.rowCount === 0) {
+      return NextResponse.json({ message: "Share link not found." }, { status: 404 })
+    }
+
+    return NextResponse.json({ ok: true, id: documentId })
+  } catch (error) {
+    return internalErrorResponse("Failed to revoke share link", error)
+  }
+}
