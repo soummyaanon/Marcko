@@ -10,7 +10,7 @@ import { authClient } from "@/lib/auth-client"
 import { Github, Star } from "lucide-react"
 
 /** Bump this when you change DEFAULT_MARKDOWN to refresh the default for all users */
-const DEFAULT_CONTENT_VERSION = 8
+const DEFAULT_CONTENT_VERSION = 9
 
 const STORAGE_KEY = "marcko-content"
 
@@ -287,25 +287,13 @@ export default function Home() {
         const data = (await response.json()) as DraftApiResponse
         if (isCancelled) return
 
-        const localSavedVersion = (() => {
-          try {
-            const raw = localStorage.getItem(STORAGE_KEY)
-            if (!raw) return 0
-            const parsed = JSON.parse(raw) as { defaultVersion?: number }
-            return typeof parsed.defaultVersion === "number" ? parsed.defaultVersion : 0
-          } catch {
-            return 0
-          }
-        })()
-
         const draftVersion =
           typeof data.contentVersion === "number" && Number.isFinite(data.contentVersion)
             ? data.contentVersion
             : 0
 
-        // Do not replace a current-version local default/content with an older server draft.
-        const shouldApplyDraft =
-          draftVersion >= DEFAULT_CONTENT_VERSION || localSavedVersion < DEFAULT_CONTENT_VERSION
+        // Never replace current defaults with an older draft from the server.
+        const shouldApplyDraft = draftVersion >= DEFAULT_CONTENT_VERSION
 
         if (typeof data.content === "string") {
           if (shouldApplyDraft) {
