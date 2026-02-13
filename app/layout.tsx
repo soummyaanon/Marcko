@@ -8,10 +8,47 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Marcko - Markdown Editor',
-  description: 'A professional markdown editor with real-time preview and sharing capabilities',
-  keywords: ['markdown', 'editor', 'preview', 'writing', 'documentation', 'marcko'],
+  metadataBase: new URL('https://marcko.bixai.dev'),
+  title: {
+    default: 'Marcko - Open Source Markdown Editor with Secure Document Sharing',
+    template: '%s | Marcko',
+  },
+  description:
+    'Open source markdown editor with real-time preview, secure document sharing, encryption at rest, and AI integration. Free for developers and writers.',
+  keywords: [
+    'markdown editor',
+    'markdown preview',
+    'secure document sharing',
+    'markdown',
+    'open source',
+    'writing',
+    'documentation',
+    'marcko',
+  ],
   authors: [{ name: 'Marcko Team' }],
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://marcko.bixai.dev',
+    siteName: 'Marcko',
+    title: 'Marcko - Open Source Markdown Editor with Secure Document Sharing',
+    description:
+      'Open source markdown editor with real-time preview, secure document sharing, encryption at rest, and AI integration.',
+    images: [
+      {
+        url: '/og.png',
+        width: 1200,
+        height: 630,
+        alt: 'Marcko - Open Source Markdown Editor with Enterprise Secure Sharing',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Marcko - Open Source Markdown Editor with Secure Document Sharing',
+    description:
+      'Open source markdown editor with real-time preview, secure document sharing, and AI integration.',
+  },
   icons: {
     icon: [
       {

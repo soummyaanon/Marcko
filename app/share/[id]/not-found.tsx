@@ -1,6 +1,11 @@
 import { FileX, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
+export const metadata = {
+  title: "Document Not Found",
+  robots: { index: false, follow: false },
+}
+
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">

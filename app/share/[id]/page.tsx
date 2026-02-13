@@ -52,7 +52,8 @@ export async function generateMetadata({ params }: SharePageProps) {
 
   if (!doc) {
     return {
-      title: "Document Not Found - Marcko",
+      title: "Document Not Found",
+      robots: { index: false, follow: false },
     }
   }
 
@@ -60,8 +61,9 @@ export async function generateMetadata({ params }: SharePageProps) {
   const title = firstLine || "Shared Document"
 
   return {
-    title: `${title} - Marcko`,
+    title,
     description: "View this shared markdown document created with Marcko",
+    robots: { index: false, follow: false },
   }
 }
 
