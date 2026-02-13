@@ -35,6 +35,9 @@ const isSingleImageParagraph = (node: ReactNode): boolean => {
 }
 
 export const markdownComponentsWithMermaid: Components = {
+  img({ node: _node, ...props }) {
+    return <img {...props} loading="lazy" decoding="async" />
+  },
   p({ node: _node, ...props }) {
     if (isSingleImageParagraph(props.children)) {
       return <p {...props} style={{ ...(props.style ?? {}), textAlign: "center" }} />

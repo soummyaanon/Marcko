@@ -25,7 +25,7 @@ const DEFAULT_MARKDOWN = `<div align="center">
 [Get Started Now](#) • [View on GitHub](https://github.com/soummyaanon/Marcko)
 
 <p align="center">
-  <video src="https://res.cloudinary.com/do33xllbd/video/upload/v1770742556/Image_Animation_with_Markdown_Preview_p1auw8.mp4?v=2" autoplay loop muted playsinline width="80%" height="auto" style="max-width: 80%; height: auto; border-radius: 12px;"></video>
+  <video src="https://res.cloudinary.com/do33xllbd/video/upload/v1770742556/Image_Animation_with_Markdown_Preview_p1auw8.mp4?v=2" autoplay loop muted playsinline preload="metadata" width="80%" height="auto" style="max-width: 80%; height: auto; border-radius: 12px;"></video>
 </p>
 
 </div>
@@ -82,7 +82,7 @@ const DEFAULT_MARKDOWN = `<div align="center">
 We support raw HTML and images!
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/92f9b0bd-6d86-4a69-869c-a8f1e2e9bf61" alt="soummyaanon-space-shooter" />
+  <img src="https://github.com/user-attachments/assets/92f9b0bd-6d86-4a69-869c-a8f1e2e9bf61" alt="soummyaanon-space-shooter" loading="lazy" decoding="async" />
 </p>
 
 ### 2. Code Syntax Highlighting
