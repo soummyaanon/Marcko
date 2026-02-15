@@ -434,7 +434,7 @@ export default function Home() {
         <ResizablePanelGroup direction={direction}>
           <ResizablePanel defaultSize={50} minSize={30}>
             <div className="flex h-full flex-col border-r border-border">
-              <MarkdownEditor value={markdown} onChange={setMarkdown} />
+              <MarkdownEditor value={markdown} onChange={setMarkdown} defaultContent={DEFAULT_MARKDOWN} />
             </div>
           </ResizablePanel>
           

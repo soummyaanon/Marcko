@@ -22,15 +22,18 @@ import {
   Code, 
   Link as LinkIcon,
   Upload,
-  Workflow
+  Workflow,
+  RotateCcw,
+  RefreshCw
 } from "lucide-react"
 
 interface MarkdownEditorProps {
   value: string
   onChange: (value: string) => void
+  defaultContent?: string
 }
 
-export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
+export function MarkdownEditor({ value, onChange, defaultContent }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const mermaidTemplate = "graph TD\n    A[Write Markdown] --> B[Live Preview]"
@@ -385,6 +388,21 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
           >
             <Upload className="h-4 w-4" />
           </ToolbarButton>
+          <div className="mx-1 h-4 w-[1px] bg-border" />
+          <ToolbarButton
+            label="Reset (clear editor)"
+            onClick={() => updateValue("", true)}
+          >
+            <RotateCcw className="h-4 w-4" />
+          </ToolbarButton>
+          {defaultContent != null ? (
+            <ToolbarButton
+              label="Load default content"
+              onClick={() => updateValue(defaultContent, true)}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </ToolbarButton>
+          ) : null}
         </TooltipProvider>
       </div>
       <div className="flex-1 overflow-auto">
