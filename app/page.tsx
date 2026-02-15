@@ -432,7 +432,7 @@ export default function Home() {
       
       <main className="flex flex-1 flex-col overflow-hidden">
         <ResizablePanelGroup direction={direction}>
-          <ResizablePanel defaultSize={50} minSize={30}>
+          <ResizablePanel defaultSize={40} minSize={20}>
             <div className="flex h-full flex-col border-r border-border">
               <MarkdownEditor value={markdown} onChange={setMarkdown} defaultContent={DEFAULT_MARKDOWN} />
             </div>
@@ -440,7 +440,7 @@ export default function Home() {
           
           <ResizableHandle withHandle />
           
-          <ResizablePanel defaultSize={50} minSize={30}>
+          <ResizablePanel defaultSize={60} minSize={20}>
             <div className="flex h-full flex-col">
               <MarkdownPreview content={markdown} onOpenPreview={() => setShowFullPreview(true)} />
             </div>
