@@ -443,101 +443,98 @@ export function EditorToolbar({
           }
         }}
       >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Your share history</DialogTitle>
-            <DialogDescription>
-              Reopen or revoke any document link you have already shared.
+        <DialogContent className="flex max-h-[min(400px,calc(100dvh-2rem))] w-full max-w-[calc(100vw-2rem)] flex-col overflow-hidden p-4 sm:max-w-lg sm:p-5">
+          <DialogHeader className="min-w-0 shrink-0 gap-1 pr-8 sm:pr-10">
+            <DialogTitle className="break-words text-base">Your share history</DialogTitle>
+            <DialogDescription className="break-words text-xs">
+              Reopen or revoke shared links.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3">
-            <div className="rounded-md border border-amber-500/30 bg-amber-100/70 p-3 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
-              Privacy note: Shared documents are stored so links and history work.
-              Anyone with the share link can view that document, so avoid sensitive data.
-              You can revoke links anytime from this panel.
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+            <div className="shrink-0 rounded-md border border-amber-500/30 bg-amber-100/70 px-2.5 py-1.5 text-[11px] text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
+              Links are stored for history. Revoke anytime.
             </div>
             {isHistoryLoading ? (
-              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+              <div className="flex shrink-0 items-center justify-center py-4 text-xs text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Loading your shares...
               </div>
             ) : historyError ? (
-              <div className="space-y-3 rounded-md border border-destructive/30 bg-destructive/5 p-3">
-                <p className="text-sm text-destructive">{historyError}</p>
-                <Button size="sm" variant="outline" onClick={() => void loadHistory()}>
+              <div className="shrink-0 space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-2.5">
+                <p className="text-xs text-destructive">{historyError}</p>
+                <Button size="sm" variant="outline" onClick={() => void loadHistory()} className="h-7 text-xs">
                   Retry
                 </Button>
               </div>
             ) : historyItems.length === 0 ? (
-              <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+              <div className="shrink-0 rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
                 No shared documents yet.
               </div>
             ) : (
-              <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
+              <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overflow-x-hidden pr-1">
                 {historyItems.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-md border border-border bg-background p-3"
+                    className="flex min-w-0 shrink-0 flex-col gap-1.5 overflow-hidden rounded-md border border-border bg-background p-2"
                   >
-                    <div className="mb-2 min-w-0">
-                      <p className="text-xs font-medium text-foreground">Shared link</p>
+                    <div className="min-w-0 overflow-hidden">
                       <a
                         href={item.shareUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-1 block truncate text-xs text-primary underline-offset-2 hover:underline"
+                        className="block break-all text-[11px] text-primary underline-offset-2 hover:underline"
                       >
                         {item.shareUrl}
                       </a>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {item.preview || "No preview available"}
+                      <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+                        {item.preview || "No preview"}
                       </p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        Shared on {formatHistoryDate(item.createdAt)}
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">
+                        {formatHistoryDate(item.createdAt)}
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={item.shareUrl} target="_blank" rel="noreferrer" className="gap-1.5">
-                          <ExternalLink className="h-4 w-4" />
-                          <span>Open</span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Button variant="outline" size="sm" asChild className="h-7 gap-1 text-xs">
+                        <a href={item.shareUrl} target="_blank" rel="noreferrer" className="gap-1">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Open
                         </a>
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="gap-1.5"
+                        className="h-7 gap-1 text-xs"
                         onClick={() => void copyHistoryLink(item.shareUrl, item.id)}
                       >
                         {copiedHistoryId === item.id ? (
                           <>
-                            <Check className="h-4 w-4" />
-                            <span className="text-xs">Copied</span>
+                            <Check className="h-3.5 w-3.5" />
+                            Copied
                           </>
                         ) : (
                           <>
-                            <Link className="h-4 w-4" />
-                            <span className="text-xs">Copy</span>
+                            <Link className="h-3.5 w-3.5" />
+                            Copy
                           </>
                         )}
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="gap-1.5"
+                        className="h-7 gap-1 text-xs"
                         onClick={() => void revokeHistoryLink(item.id)}
                         disabled={revokingHistoryId === item.id}
                       >
                         {revokingHistoryId === item.id ? (
                           <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span className="text-xs">Revoking</span>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Revoking
                           </>
                         ) : (
                           <>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="text-xs">Revoke</span>
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Revoke
                           </>
                         )}
                       </Button>
