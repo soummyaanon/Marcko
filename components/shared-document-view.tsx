@@ -386,19 +386,7 @@ export function SharedDocumentView({
             </div>
           </div>
 
-          <a
-            href="https://peerlist.io/somyaranjan/project/marcko--markdown-editor"
-            target="_blank"
-            rel="noreferrer"
-            className="transition-opacity hover:opacity-90"
-          >
-            <img
-              src="https://peerlist.io/api/v1/projects/embed/PRJH6A7AJ7E8MN7EA3OLDKONGKN9MR?showUpvote=false&theme=dark"
-              alt="Marcko - Markdown Editor"
-              className="h-[72px] w-auto"
-              loading="lazy"
-            />
-          </a>
+
 
           <a
             href="https://github.com/soummyaanon/Marcko"
