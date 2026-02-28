@@ -157,9 +157,12 @@ Easily generate a unique public URL for your markdown.
 
 const PENDING_SHARE_STORAGE_KEY = "marcko-pending-share"
 
+const PENDING_SHARE_VISIBILITY_KEY = "marcko-pending-share-visibility"
+
 type ShareApiResponse = {
   id: string
   shareUrl: string
+  visibility: "public" | "private"
 }
 
 type DraftApiResponse = {
@@ -337,13 +340,13 @@ export default function Home() {
     return () => clearTimeout(timeoutId)
   }, [markdown, sessionUser?.id, isDraftReady])
 
-  const requestShare = useCallback(async (content: string): Promise<string> => {
+  const requestShare = useCallback(async (content: string, visibility: "public" | "private" = "public"): Promise<string> => {
     const response = await fetch("/api/share", {
       method: "POST",
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, visibility }),
     })
 
     if (!response.ok) {
@@ -366,12 +369,13 @@ export default function Home() {
     return data.shareUrl
   }, [])
 
-  const handleShare = useCallback(async (): Promise<string> => {
-    return requestShare(markdown)
+  const handleShare = useCallback(async (visibility: "public" | "private" = "public"): Promise<string> => {
+    return requestShare(markdown, visibility)
   }, [markdown, requestShare])
 
   const handleShareAuthRequired = useCallback(() => {
     localStorage.setItem(PENDING_SHARE_STORAGE_KEY, "1")
+    localStorage.setItem(PENDING_SHARE_VISIBILITY_KEY, "public")
     setShowSignInModal(true)
     setShareWarning("Sign in with Google to share documents.")
   }, [])
@@ -397,6 +401,7 @@ export default function Home() {
     if (!shouldResumeShare) return
 
     localStorage.removeItem(PENDING_SHARE_STORAGE_KEY)
+    localStorage.removeItem(PENDING_SHARE_VISIBILITY_KEY)
     setShowSignInModal(false)
     setShareTriggerToken((previous) => previous + 1)
     setShareWarning(null)

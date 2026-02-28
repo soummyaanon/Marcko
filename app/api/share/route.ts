@@ -86,6 +86,16 @@ const ensureShareSchema = async () => {
       `)
 
       await authDbPool.query(`
+        ALTER TABLE documents
+        ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'public'
+          CHECK (visibility IN ('public', 'private'));
+      `)
+
+      await authDbPool.query(`
+        CREATE INDEX IF NOT EXISTS idx_documents_visibility ON documents(visibility);
+      `)
+
+      await authDbPool.query(`
         ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
       `)
 
@@ -142,7 +152,8 @@ export async function GET(request: NextRequest) {
         id,
         content,
         created_at,
-        updated_at
+        updated_at,
+        visibility
       FROM documents
       WHERE user_id = $1
       ORDER BY created_at DESC
@@ -166,6 +177,7 @@ export async function GET(request: NextRequest) {
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         shareUrl: buildShareUrl(request, String(row.id)),
+        visibility: (row.visibility === "private" ? "private" : "public") as "public" | "private",
       })),
     })
   } catch (error) {
@@ -174,10 +186,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  let body: { content?: unknown } | null = null
+  let body: { content?: unknown; visibility?: unknown } | null = null
 
   try {
-    body = (await request.json()) as { content?: unknown }
+    body = (await request.json()) as { content?: unknown; visibility?: unknown }
   } catch {
     return NextResponse.json({ message: "Invalid JSON payload" }, { status: 400 })
   }
@@ -186,6 +198,8 @@ export async function POST(request: NextRequest) {
   if (!content.trim()) {
     return NextResponse.json({ message: "Content is required" }, { status: 400 })
   }
+
+  const visibility = body?.visibility === "private" ? "private" : "public"
 
   await ensureAuthSchema()
   await ensureShareSchema()
@@ -208,10 +222,10 @@ export async function POST(request: NextRequest) {
   const insertDocument = async (id: string) => {
     return authDbPool.query(
       `
-      INSERT INTO documents (id, content, user_id)
-      VALUES ($1, $2, $3)
+      INSERT INTO documents (id, content, user_id, visibility)
+      VALUES ($1, $2, $3, $4)
       `,
-      [id, encryptedContent, userId],
+      [id, encryptedContent, userId, visibility],
     )
   }
 
@@ -249,7 +263,55 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     id: documentId,
     shareUrl: buildShareUrl(request, documentId),
+    visibility,
   })
+}
+
+export async function PATCH(request: NextRequest) {
+  await ensureAuthSchema()
+  await ensureShareSchema()
+
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  })
+  const userId = session?.user?.id ?? null
+  if (!userId) {
+    return authRequiredResponse()
+  }
+
+  let body: { id?: unknown; visibility?: unknown } | null = null
+  try {
+    body = (await request.json()) as { id?: unknown; visibility?: unknown }
+  } catch {
+    return NextResponse.json({ message: "Invalid JSON payload" }, { status: 400 })
+  }
+
+  const documentId = typeof body?.id === "string" ? body.id.trim() : ""
+  if (!documentId) {
+    return NextResponse.json({ message: "Document id is required." }, { status: 400 })
+  }
+
+  const visibility = body?.visibility === "private" ? "private" : "public"
+
+  try {
+    const result = await authDbPool.query(
+      `
+      UPDATE documents
+      SET visibility = $1, updated_at = NOW()
+      WHERE id = $2 AND user_id = $3
+      RETURNING id, visibility
+      `,
+      [visibility, documentId, userId],
+    )
+
+    if (result.rowCount === 0) {
+      return NextResponse.json({ message: "Document not found or access denied." }, { status: 404 })
+    }
+
+    return NextResponse.json({ ok: true, id: documentId, visibility })
+  } catch (error) {
+    return internalErrorResponse("Failed to update document visibility", error)
+  }
 }
 
 export async function DELETE(request: NextRequest) {

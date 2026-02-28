@@ -23,6 +23,7 @@ import {
   Star,
   Bot,
   Menu,
+  Lock,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -47,6 +48,7 @@ interface SharedDocumentViewProps {
   documentId?: string
   onBackToEditor?: () => void
   sharedBy?: SharedBy
+  visibility?: "public" | "private"
 }
 
 export function SharedDocumentView({
@@ -54,6 +56,7 @@ export function SharedDocumentView({
   documentId,
   onBackToEditor,
   sharedBy,
+  visibility,
 }: SharedDocumentViewProps) {
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system")
   const [copiedContent, setCopiedContent] = useState(false)
@@ -350,8 +353,14 @@ export function SharedDocumentView({
       <main className="flex-1 px-4 py-8 md:px-6">
         <article className="mx-auto max-w-3xl">
           {sharedBy ? (
-            <p className="mb-6 text-sm text-muted-foreground">
-              Shared by {sharedBy.type === "guest" ? "guest" : sharedBy.name}
+            <p className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Shared by {sharedBy.type === "guest" ? "guest" : sharedBy.name}</span>
+              {visibility === "private" ? (
+                <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                  <Lock className="h-2.5 w-2.5" />
+                  Private
+                </span>
+              ) : null}
             </p>
           ) : null}
           <div

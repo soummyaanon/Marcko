@@ -15,6 +15,8 @@ import {
   History,
   ExternalLink,
   ShieldCheck,
+  Globe,
+  Lock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -35,7 +37,7 @@ import {
 import { Input } from "@/components/ui/input"
 
 interface EditorToolbarProps {
-  onShare: () => Promise<string>
+  onShare: (visibility: "public" | "private") => Promise<string>
   onShareAuthRequired: () => void
   theme: "light" | "dark" | "system"
   onThemeChange: (theme: "light" | "dark" | "system") => void
@@ -57,6 +59,7 @@ type ShareHistoryItem = {
   createdAt: string
   updatedAt: string
   shareUrl: string
+  visibility: "public" | "private"
 }
 
 type ShareHistoryResponse = {
@@ -106,12 +109,16 @@ export function EditorToolbar({
   const [isHistoryLoading, setIsHistoryLoading] = useState(false)
   const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null)
   const [revokingHistoryId, setRevokingHistoryId] = useState<string | null>(null)
+  const [showVisibilityPicker, setShowVisibilityPicker] = useState(false)
+  const [pendingVisibility, setPendingVisibility] = useState<"public" | "private">("public")
+  const [togglingVisibilityId, setTogglingVisibilityId] = useState<string | null>(null)
 
   const handleShare = async () => {
     setIsSharing(true)
     try {
-      const url = await onShare()
+      const url = await onShare(pendingVisibility)
       setShareUrl(url)
+      setShowVisibilityPicker(false)
       setShowDialog(true)
     } catch (error) {
       if (isAuthRequiredError(error)) {
@@ -158,10 +165,42 @@ export function EditorToolbar({
 
   useEffect(() => {
     if (shareTriggerToken > 0) {
+      // Auto-triggered share (post-OAuth redirect) — skip picker, use pending visibility
       void handleShare()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareTriggerToken])
+
+  const openSharePicker = () => {
+    setPendingVisibility("public")
+    setShowVisibilityPicker(true)
+  }
+
+  const toggleVisibility = async (id: string, current: "public" | "private") => {
+    const next = current === "public" ? "private" : "public"
+    setTogglingVisibilityId(id)
+    try {
+      const response = await fetch("/api/share", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, visibility: next }),
+      })
+
+      if (!response.ok) {
+        const errorData = (await response.json().catch(() => null)) as { message?: string } | null
+        throw new Error(errorData?.message || "Failed to update visibility")
+      }
+
+      setHistoryItems((previous) =>
+        previous.map((item) => (item.id === id ? { ...item, visibility: next } : item)),
+      )
+    } catch (error) {
+      console.error("Failed to toggle visibility:", error)
+      setHistoryError("Unable to update visibility right now.")
+    } finally {
+      setTogglingVisibilityId(null)
+    }
+  }
 
   const copyShareLink = async () => {
     if (shareUrl) {
@@ -310,7 +349,7 @@ export function EditorToolbar({
           </Button>
 
           <Button
-            onClick={handleShare}
+            onClick={openSharePicker}
             disabled={isSharing}
             className="gap-2"
             size="sm"
@@ -399,6 +438,66 @@ export function EditorToolbar({
         </div>
       ) : null}
 
+      <Dialog open={showVisibilityPicker} onOpenChange={setShowVisibilityPicker}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Share visibility</DialogTitle>
+            <DialogDescription>
+              Choose who can view this shared document.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => setPendingVisibility("public")}
+              className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+                pendingVisibility === "public"
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:bg-muted/50"
+              }`}
+            >
+              <Globe className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <div>
+                <p className="text-sm font-medium">Public</p>
+                <p className="text-xs text-muted-foreground">Anyone with the link can view</p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPendingVisibility("private")}
+              className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+                pendingVisibility === "private"
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:bg-muted/50"
+              }`}
+            >
+              <Lock className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div>
+                <p className="text-sm font-medium">Private</p>
+                <p className="text-xs text-muted-foreground">Only signed-in users can view</p>
+              </div>
+            </button>
+          </div>
+          <Button
+            onClick={handleShare}
+            disabled={isSharing}
+            className="w-full gap-2"
+          >
+            {isSharing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Share2 className="h-4 w-4" />
+                Generate Link
+              </>
+            )}
+          </Button>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -479,14 +578,30 @@ export function EditorToolbar({
                     className="flex min-w-0 shrink-0 flex-col gap-1.5 overflow-hidden rounded-md border border-border bg-background p-2"
                   >
                     <div className="min-w-0 overflow-hidden">
-                      <a
-                        href={item.shareUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block break-all text-[11px] text-primary underline-offset-2 hover:underline"
-                      >
-                        {item.shareUrl}
-                      </a>
+                      <div className="flex items-center gap-1.5">
+                        <a
+                          href={item.shareUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block break-all text-[11px] text-primary underline-offset-2 hover:underline"
+                        >
+                          {item.shareUrl}
+                        </a>
+                        <span
+                          className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
+                            item.visibility === "private"
+                              ? "border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                              : "border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                          }`}
+                        >
+                          {item.visibility === "private" ? (
+                            <Lock className="h-2.5 w-2.5" />
+                          ) : (
+                            <Globe className="h-2.5 w-2.5" />
+                          )}
+                          {item.visibility === "private" ? "Private" : "Public"}
+                        </span>
+                      </div>
                       <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
                         {item.preview || "No preview"}
                       </p>
@@ -516,6 +631,30 @@ export function EditorToolbar({
                           <>
                             <Link className="h-3.5 w-3.5" />
                             Copy
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1 text-xs"
+                        onClick={() => void toggleVisibility(item.id, item.visibility)}
+                        disabled={togglingVisibilityId === item.id}
+                      >
+                        {togglingVisibilityId === item.id ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Updating
+                          </>
+                        ) : item.visibility === "private" ? (
+                          <>
+                            <Globe className="h-3.5 w-3.5" />
+                            Make Public
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="h-3.5 w-3.5" />
+                            Make Private
                           </>
                         )}
                       </Button>

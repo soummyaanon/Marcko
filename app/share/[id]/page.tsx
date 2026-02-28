@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation"
-import { authDbPool } from "@/lib/auth"
+import { headers } from "next/headers"
+import { auth, authDbPool } from "@/lib/auth"
 import { SharedDocumentView } from "@/components/shared-document-view"
+import { PrivateDocumentGate } from "@/components/auth/private-document-gate"
 import { decryptStoredContent } from "@/lib/secure-content"
 
 interface SharePageProps {
@@ -11,7 +13,7 @@ async function getDocumentWithOwner(id: string) {
   let result
   try {
     result = await authDbPool.query(
-      `SELECT d.id, d.content, d.user_id, u.name as owner_name
+      `SELECT d.id, d.content, d.user_id, d.visibility, u.name as owner_name
        FROM documents d
        LEFT JOIN "user" u ON d.user_id = u.id
        WHERE d.id = $1`,
@@ -20,7 +22,7 @@ async function getDocumentWithOwner(id: string) {
   } catch {
     try {
       result = await authDbPool.query(
-        `SELECT d.id, d.content, d.user_id, u.name as owner_name
+        `SELECT d.id, d.content, d.user_id, d.visibility, u.name as owner_name
          FROM documents d
          LEFT JOIN users u ON d.user_id = u.id
          WHERE d.id = $1`,
@@ -28,7 +30,7 @@ async function getDocumentWithOwner(id: string) {
       )
     } catch {
       result = await authDbPool.query(
-        `SELECT id, content, user_id, NULL::text as owner_name FROM documents WHERE id = $1`,
+        `SELECT id, content, user_id, visibility, NULL::text as owner_name FROM documents WHERE id = $1`,
         [id],
       )
     }
@@ -75,6 +77,9 @@ export default async function SharePage({ params }: SharePageProps) {
     notFound()
   }
 
+  // Gate private documents behind authentication
+  const visibility = doc.visibility === "private" ? "private" : "public"
+
   const decodedContent = getDecodedContent(doc.content)
 
   const sharedBy: { type: "guest" } | { type: "user"; name: string } =
@@ -84,11 +89,27 @@ export default async function SharePage({ params }: SharePageProps) {
         ? { type: "user", name: "user" }
         : { type: "guest" }
 
+  if (visibility === "private") {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    })
+    if (!session?.user) {
+      return (
+        <PrivateDocumentGate
+          documentId={id}
+          content={decodedContent}
+          sharedBy={sharedBy}
+        />
+      )
+    }
+  }
+
   return (
     <SharedDocumentView
       content={decodedContent}
       documentId={id}
       sharedBy={sharedBy}
+      visibility={visibility}
     />
   )
 }
