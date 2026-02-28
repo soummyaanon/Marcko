@@ -1,6 +1,6 @@
 import "server-only"
 
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto"
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 
 const ENCRYPTION_VERSION = "enc:v1"
 const CIPHER_ALGORITHM = "aes-256-gcm"
@@ -62,4 +62,60 @@ export const decryptStoredContent = (storedValue: string): string => {
   ])
 
   return decrypted.toString("utf8")
+}
+
+// ---------------------------------------------------------------------------
+// Signed access tokens – stateless, HMAC-based, time-limited tokens that
+// allow temporary unauthenticated access to a private document (e.g. when
+// opening a doc in an AI assistant that cannot sign in with Google).
+// ---------------------------------------------------------------------------
+
+const ACCESS_TOKEN_TTL_MS = 30 * 60 * 1000 // 30 minutes
+
+const getTokenSigningKey = (): Buffer => {
+  return createHash("sha256")
+    .update(`access-token:${getEncryptionSecret()}`)
+    .digest()
+}
+
+/**
+ * Create a time-limited signed access token for a document.
+ * Format: `<expiresEpochMs>.<hmacBase64url>`
+ */
+export const createSignedAccessToken = (documentId: string): string => {
+  const expires = Date.now() + ACCESS_TOKEN_TTL_MS
+  const payload = `${documentId}:${expires}`
+  const hmac = createHmac("sha256", getTokenSigningKey())
+    .update(payload)
+    .digest("base64url")
+  return `${expires}.${hmac}`
+}
+
+/**
+ * Verify a signed access token for a given document.
+ * Returns `true` when the token is valid and not expired.
+ */
+export const verifySignedAccessToken = (
+  documentId: string,
+  token: string,
+): boolean => {
+  const dotIndex = token.indexOf(".")
+  if (dotIndex === -1) return false
+
+  const expiresStr = token.slice(0, dotIndex)
+  const receivedHmac = token.slice(dotIndex + 1)
+
+  const expires = Number(expiresStr)
+  if (!Number.isFinite(expires) || Date.now() > expires) return false
+
+  const payload = `${documentId}:${expiresStr}`
+  const expectedHmac = createHmac("sha256", getTokenSigningKey())
+    .update(payload)
+    .digest("base64url")
+
+  // Constant-time comparison
+  if (receivedHmac.length !== expectedHmac.length) return false
+  const a = Buffer.from(receivedHmac)
+  const b = Buffer.from(expectedHmac)
+  return timingSafeEqual(a, b)
 }

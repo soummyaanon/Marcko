@@ -104,7 +104,30 @@ export function SharedDocumentView({
 
   const openInApp = async (agent: "chatgpt" | "claude" | "perplexity") => {
     if (!documentId) return
-    const shareUrl = `${window.location.origin}/share/${documentId}`
+
+    let shareUrl = `${window.location.origin}/share/${documentId}`
+
+    // For private documents, generate a temporary access token so the AI can
+    // bypass the authentication gate.
+    if (visibility === "private") {
+      try {
+        const res = await fetch("/api/share/access-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ documentId }),
+        })
+        if (res.ok) {
+          const data = (await res.json()) as { token?: string }
+          if (data.token) {
+            shareUrl += `?token=${encodeURIComponent(data.token)}`
+          }
+        }
+      } catch {
+        // Fall back to plain URL – the AI won't be able to read it but at
+        // least the link is still shared.
+      }
+    }
+
     await navigator.clipboard.writeText(shareUrl)
     setCopiedLink(true)
     setTimeout(() => setCopiedLink(false), 2000)

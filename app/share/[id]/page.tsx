@@ -3,10 +3,11 @@ import { headers } from "next/headers"
 import { auth, authDbPool } from "@/lib/auth"
 import { SharedDocumentView } from "@/components/shared-document-view"
 import { PrivateDocumentGate } from "@/components/auth/private-document-gate"
-import { decryptStoredContent } from "@/lib/secure-content"
+import { decryptStoredContent, verifySignedAccessToken } from "@/lib/secure-content"
 
 interface SharePageProps {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ token?: string }>
 }
 
 async function getDocumentWithOwner(id: string) {
@@ -69,8 +70,9 @@ export async function generateMetadata({ params }: SharePageProps) {
   }
 }
 
-export default async function SharePage({ params }: SharePageProps) {
+export default async function SharePage({ params, searchParams }: SharePageProps) {
   const { id } = await params
+  const { token } = await searchParams
   const doc = await getDocumentWithOwner(id)
 
   if (!doc) {
@@ -90,17 +92,22 @@ export default async function SharePage({ params }: SharePageProps) {
         : { type: "guest" }
 
   if (visibility === "private") {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    })
-    if (!session?.user) {
-      return (
-        <PrivateDocumentGate
-          documentId={id}
-          content={decodedContent}
-          sharedBy={sharedBy}
-        />
-      )
+    // Allow access if a valid signed access token is present (e.g. AI assistants)
+    const hasValidToken = typeof token === "string" && verifySignedAccessToken(id, token)
+
+    if (!hasValidToken) {
+      const session = await auth.api.getSession({
+        headers: await headers(),
+      })
+      if (!session?.user) {
+        return (
+          <PrivateDocumentGate
+            documentId={id}
+            content={decodedContent}
+            sharedBy={sharedBy}
+          />
+        )
+      }
     }
   }
 
