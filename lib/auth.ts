@@ -1,5 +1,6 @@
 import "server-only"
 
+import { dash, sentinel } from "@better-auth/infra"
 import { Pool } from "pg"
 import { betterAuth } from "better-auth"
 import { getMigrations } from "better-auth/db"
@@ -89,7 +90,7 @@ export const auth = betterAuth({
           },
         }
       : {},
-  plugins: [nextCookies()],
+  plugins: [nextCookies(), dash(), sentinel()],
 })
 
 let authMigrationsPromise: Promise<void> | null = null

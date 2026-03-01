@@ -1,5 +1,6 @@
 "use client"
 
+import { sentinelClient } from "@better-auth/infra/client"
 import { createAuthClient } from "better-auth/react"
 
 const authBaseUrl =
@@ -12,4 +13,5 @@ const authBaseUrl =
 export const authClient = createAuthClient({
   baseURL: authBaseUrl,
   basePath: "/api/auth",
+  plugins: [sentinelClient()],
 })
