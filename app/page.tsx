@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { Suspense, useState, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { MarkdownEditor } from "@/components/markdown-editor"
 import { MarkdownPreview } from "@/components/markdown-preview"
@@ -197,7 +197,7 @@ const createAuthRequiredError = (message: string) => {
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const editingDocumentId = searchParams.get("edit")?.trim() || null
@@ -565,5 +565,21 @@ export default function Home() {
 
       <GoogleSignInModal open={showSignInModal} onOpenChange={setShowSignInModal} />
     </div>
+  )
+}
+
+function HomeFallback() {
+  return (
+    <div className="fixed inset-0 flex flex-col items-center justify-center bg-background">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<HomeFallback />}>
+      <HomeContent />
+    </Suspense>
   )
 }
