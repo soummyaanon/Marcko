@@ -49,6 +49,7 @@ interface SharedDocumentViewProps {
   onBackToEditor?: () => void
   sharedBy?: SharedBy
   visibility?: "public" | "private"
+  isOwner?: boolean
 }
 
 export function SharedDocumentView({
@@ -57,6 +58,7 @@ export function SharedDocumentView({
   onBackToEditor,
   sharedBy,
   visibility,
+  isOwner = false,
 }: SharedDocumentViewProps) {
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system")
   const [copiedContent, setCopiedContent] = useState(false)
@@ -282,6 +284,13 @@ export function SharedDocumentView({
                 <Pencil className="h-4 w-4" />
                 <span className="hidden sm:inline">Back to Editor</span>
               </Button>
+            ) : isOwner && documentId ? (
+              <Button asChild size="sm" className="gap-1.5">
+                <a href={`/?edit=${encodeURIComponent(documentId)}`}>
+                  <Pencil className="h-4 w-4" />
+                  <span className="hidden sm:inline">Edit</span>
+                </a>
+              </Button>
             ) : (
               <Button asChild size="sm" className="gap-1.5">
                 <a href="/">
@@ -356,6 +365,13 @@ export function SharedDocumentView({
                   <DropdownMenuItem onClick={onBackToEditor}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     <span>Back to Editor</span>
+                  </DropdownMenuItem>
+                ) : isOwner && documentId ? (
+                  <DropdownMenuItem asChild>
+                    <a href={`/?edit=${encodeURIComponent(documentId)}`}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      <span>Edit</span>
+                    </a>
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem asChild>

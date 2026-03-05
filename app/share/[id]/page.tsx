@@ -91,14 +91,15 @@ export default async function SharePage({ params, searchParams }: SharePageProps
         ? { type: "user", name: "user" }
         : { type: "guest" }
 
+  let isOwner = false
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
+
   if (visibility === "private") {
-    // Allow access if a valid signed access token is present (e.g. AI assistants)
     const hasValidToken = typeof token === "string" && verifySignedAccessToken(id, token)
 
     if (!hasValidToken) {
-      const session = await auth.api.getSession({
-        headers: await headers(),
-      })
       if (!session?.user) {
         return (
           <PrivateDocumentGate
@@ -111,12 +112,17 @@ export default async function SharePage({ params, searchParams }: SharePageProps
     }
   }
 
+  if (doc.user_id && session?.user?.id) {
+    isOwner = session.user.id === doc.user_id
+  }
+
   return (
     <SharedDocumentView
       content={decodedContent}
       documentId={id}
       sharedBy={sharedBy}
       visibility={visibility}
+      isOwner={isOwner}
     />
   )
 }

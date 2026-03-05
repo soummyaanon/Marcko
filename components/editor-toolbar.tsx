@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Globe,
   Lock,
+  Pencil,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -39,6 +40,10 @@ import { Input } from "@/components/ui/input"
 interface EditorToolbarProps {
   onShare: (visibility: "public" | "private") => Promise<string>
   onShareAuthRequired: () => void
+  onUpdateShare?: (docId: string, content: string) => Promise<string>
+  onEditDocument?: (docId: string) => void
+  editingDocumentId?: string | null
+  editorContent?: string
   theme: "light" | "dark" | "system"
   onThemeChange: (theme: "light" | "dark" | "system") => void
   isAuthenticated: boolean
@@ -84,6 +89,10 @@ const formatHistoryDate = (value: string): string => {
 export function EditorToolbar({
   onShare,
   onShareAuthRequired,
+  onUpdateShare,
+  onEditDocument,
+  editingDocumentId,
+  editorContent = "",
   theme,
   onThemeChange,
   isAuthenticated,
@@ -126,6 +135,20 @@ export function EditorToolbar({
         return
       }
       console.error("Failed to share:", error)
+    } finally {
+      setIsSharing(false)
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!editingDocumentId || !onUpdateShare) return
+    setIsSharing(true)
+    try {
+      const url = await onUpdateShare(editingDocumentId, editorContent)
+      setShareUrl(url)
+      setShowDialog(true)
+    } catch (error) {
+      console.error("Failed to update document:", error)
     } finally {
       setIsSharing(false)
     }
@@ -349,15 +372,22 @@ export function EditorToolbar({
           </Button>
 
           <Button
-            onClick={openSharePicker}
-            disabled={isSharing}
+            onClick={editingDocumentId && onUpdateShare ? () => void handleUpdate() : openSharePicker}
+            disabled={isSharing || (editingDocumentId && !editorContent?.trim())}
             className="gap-2"
             size="sm"
           >
             {isSharing ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="hidden sm:inline">Sharing...</span>
+                <span className="hidden sm:inline">
+                  {editingDocumentId ? "Updating..." : "Sharing..."}
+                </span>
+              </>
+            ) : editingDocumentId && onUpdateShare ? (
+              <>
+                <Pencil className="h-4 w-4" />
+                <span className="hidden sm:inline">Update</span>
               </>
             ) : (
               <>
@@ -501,10 +531,13 @@ export function EditorToolbar({
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Share your document</DialogTitle>
+            <DialogTitle>
+              {editingDocumentId ? "Document updated" : "Share your document"}
+            </DialogTitle>
             <DialogDescription>
-              Anyone with this link can view your rendered markdown document. Shared
-              documents are stored to keep links working.
+              {editingDocumentId
+                ? "Your changes have been saved. The same link now shows the updated content."
+                : "Anyone with this link can view your rendered markdown document. Shared documents are stored to keep links working."}
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2">
@@ -634,6 +667,20 @@ export function EditorToolbar({
                           </>
                         )}
                       </Button>
+                      {onEditDocument ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 text-xs"
+                          onClick={() => {
+                            onEditDocument(item.id)
+                            setShowHistoryDialog(false)
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Update
+                        </Button>
+                      ) : null}
                       <Button
                         variant="outline"
                         size="sm"

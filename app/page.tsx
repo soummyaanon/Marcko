@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { MarkdownEditor } from "@/components/markdown-editor"
 import { MarkdownPreview } from "@/components/markdown-preview"
 import { EditorToolbar } from "@/components/editor-toolbar"
@@ -165,6 +166,13 @@ type ShareApiResponse = {
   visibility: "public" | "private"
 }
 
+type ShareDocResponse = {
+  id: string
+  content: string
+  visibility: "public" | "private"
+  shareUrl: string
+}
+
 type DraftApiResponse = {
   content?: string | null
   contentVersion?: number | null
@@ -190,6 +198,10 @@ const createAuthRequiredError = (message: string) => {
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 
 export default function Home() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const editingDocumentId = searchParams.get("edit")?.trim() || null
+
   const [markdown, setMarkdown] = useState(DEFAULT_MARKDOWN)
   const [showFullPreview, setShowFullPreview] = useState(false)
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system")
@@ -269,10 +281,40 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
+    if (editingDocumentId && sessionUser?.id) {
+      let isCancelled = false
+      const loadDoc = async () => {
+        try {
+          const response = await fetch(`/api/share?id=${encodeURIComponent(editingDocumentId)}`, {
+            cache: "no-store",
+          })
+          if (!response.ok || isCancelled) return
+          const data = (await response.json()) as ShareDocResponse
+          if (isCancelled) return
+          if (typeof data.content === "string") {
+            setMarkdown(data.content)
+          }
+        } catch (error) {
+          console.error("Failed to load document for editing:", error)
+        }
+      }
+      void loadDoc()
+      return () => {
+        isCancelled = true
+      }
+    }
+  }, [editingDocumentId, sessionUser?.id])
+
+  useEffect(() => {
     if (isSessionPending) return
 
     if (!sessionUser?.id) {
       setIsDraftReady(false)
+      return
+    }
+
+    if (editingDocumentId) {
+      setIsDraftReady(true)
       return
     }
 
@@ -317,7 +359,7 @@ export default function Home() {
     return () => {
       isCancelled = true
     }
-  }, [isSessionPending, sessionUser?.id])
+  }, [isSessionPending, sessionUser?.id, editingDocumentId])
 
   useEffect(() => {
     if (!sessionUser?.id || !isDraftReady) return
@@ -373,6 +415,39 @@ export default function Home() {
     return requestShare(markdown, visibility)
   }, [markdown, requestShare])
 
+  const requestUpdateShare = useCallback(
+    async (docId: string, content: string): Promise<string> => {
+      const response = await fetch("/api/share", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ id: docId, content }),
+      })
+
+      if (!response.ok) {
+        const errorData = (await response.json().catch(() => null)) as ApiErrorResponse | null
+        const debugSuffix =
+          errorData?.error?.code || errorData?.error?.detail
+            ? ` (${errorData.error?.code || "UNKNOWN"}: ${errorData.error?.detail || "no detail"})`
+            : ""
+        throw new Error((errorData?.message || "Failed to update document") + debugSuffix)
+      }
+
+      const data = (await response.json()) as { shareUrl?: string }
+      setShareWarning(null)
+      return data.shareUrl ?? `${typeof window !== "undefined" ? window.location.origin : ""}/share/${docId}`
+    },
+    [],
+  )
+
+  const handleEditDocument = useCallback(
+    (docId: string) => {
+      router.push(`/?edit=${encodeURIComponent(docId)}`)
+    },
+    [router],
+  )
+
   const handleShareAuthRequired = useCallback(() => {
     localStorage.setItem(PENDING_SHARE_STORAGE_KEY, "1")
     localStorage.setItem(PENDING_SHARE_VISIBILITY_KEY, "public")
@@ -418,10 +493,14 @@ export default function Home() {
 
   return (
     <div className="fixed inset-0 flex flex-col bg-background overflow-hidden">
-      <EditorToolbar 
+      <EditorToolbar
         onShare={handleShare}
         onShareAuthRequired={handleShareAuthRequired}
-        theme={theme} 
+        onUpdateShare={editingDocumentId ? requestUpdateShare : undefined}
+        onEditDocument={handleEditDocument}
+        editingDocumentId={editingDocumentId}
+        editorContent={editingDocumentId ? markdown : undefined}
+        theme={theme}
         onThemeChange={setTheme}
         isAuthenticated={Boolean(sessionUser)}
         isAuthLoading={isSessionPending}

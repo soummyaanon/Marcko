@@ -142,6 +142,42 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  const docId = request.nextUrl.searchParams.get("id")?.trim()
+  if (docId) {
+    try {
+      const result = await authDbPool.query(
+        `
+        SELECT id, content, visibility
+        FROM documents
+        WHERE id = $1 AND user_id = $2
+        LIMIT 1
+        `,
+        [docId, userId],
+      )
+      if (result.rowCount === 0) {
+        return NextResponse.json(
+          { message: "Document not found or access denied." },
+          { status: 404 },
+        )
+      }
+      const row = result.rows[0]
+      let content: string
+      try {
+        content = decryptStoredContent(String(row.content ?? ""))
+      } catch {
+        content = String(row.content ?? "")
+      }
+      return NextResponse.json({
+        id: String(row.id),
+        content,
+        visibility: (row.visibility === "private" ? "private" : "public") as "public" | "private",
+        shareUrl: buildShareUrl(request, String(row.id)),
+      })
+    } catch (error) {
+      return internalErrorResponse("Failed to fetch document", error)
+    }
+  }
+
   const rawLimit = Number.parseInt(request.nextUrl.searchParams.get("limit") ?? "25", 10)
   const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 25
 
@@ -279,9 +315,9 @@ export async function PATCH(request: NextRequest) {
     return authRequiredResponse()
   }
 
-  let body: { id?: unknown; visibility?: unknown } | null = null
+  let body: { id?: unknown; visibility?: unknown; content?: unknown } | null = null
   try {
-    body = (await request.json()) as { id?: unknown; visibility?: unknown }
+    body = (await request.json()) as { id?: unknown; visibility?: unknown; content?: unknown }
   } catch {
     return NextResponse.json({ message: "Invalid JSON payload" }, { status: 400 })
   }
@@ -291,26 +327,111 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ message: "Document id is required." }, { status: 400 })
   }
 
+  const content = typeof body?.content === "string" ? body.content : undefined
+  if (content !== undefined && !content.trim()) {
+    return NextResponse.json({ message: "Content cannot be empty." }, { status: 400 })
+  }
+
+  const hasContent = content !== undefined
+  const hasVisibility = body?.visibility !== undefined
+
+  if (!hasContent && !hasVisibility) {
+    return NextResponse.json(
+      { message: "Either content or visibility is required." },
+      { status: 400 },
+    )
+  }
+
   const visibility = body?.visibility === "private" ? "private" : "public"
 
+  if (hasContent && !hasVisibility) {
+    let encryptedContent: string
+    try {
+      encryptedContent = encryptStoredContent(content)
+    } catch (error) {
+      return internalErrorResponse("Failed to encrypt content", error)
+    }
+    try {
+      const result = await authDbPool.query(
+        `
+        UPDATE documents
+        SET content = $1, updated_at = NOW()
+        WHERE id = $2 AND user_id = $3
+        RETURNING id, visibility
+        `,
+        [encryptedContent, documentId, userId],
+      )
+      if (result.rowCount === 0) {
+        return NextResponse.json(
+          { message: "Document not found or access denied." },
+          { status: 404 },
+        )
+      }
+      const row = result.rows[0]
+      return NextResponse.json({
+        ok: true,
+        id: documentId,
+        visibility: (row.visibility === "private" ? "private" : "public") as "public" | "private",
+        shareUrl: buildShareUrl(request, documentId),
+      })
+    } catch (error) {
+      return internalErrorResponse("Failed to update document content", error)
+    }
+  }
+
+  if (hasVisibility && !hasContent) {
+    try {
+      const result = await authDbPool.query(
+        `
+        UPDATE documents
+        SET visibility = $1, updated_at = NOW()
+        WHERE id = $2 AND user_id = $3
+        RETURNING id, visibility
+        `,
+        [visibility, documentId, userId],
+      )
+      if (result.rowCount === 0) {
+        return NextResponse.json(
+          { message: "Document not found or access denied." },
+          { status: 404 },
+        )
+      }
+      return NextResponse.json({ ok: true, id: documentId, visibility })
+    } catch (error) {
+      return internalErrorResponse("Failed to update document visibility", error)
+    }
+  }
+
+  let encryptedContent: string
+  try {
+    encryptedContent = encryptStoredContent(content)
+  } catch (error) {
+    return internalErrorResponse("Failed to encrypt content", error)
+  }
   try {
     const result = await authDbPool.query(
       `
       UPDATE documents
-      SET visibility = $1, updated_at = NOW()
-      WHERE id = $2 AND user_id = $3
+      SET content = $1, visibility = $2, updated_at = NOW()
+      WHERE id = $3 AND user_id = $4
       RETURNING id, visibility
       `,
-      [visibility, documentId, userId],
+      [encryptedContent, visibility, documentId, userId],
     )
-
     if (result.rowCount === 0) {
-      return NextResponse.json({ message: "Document not found or access denied." }, { status: 404 })
+      return NextResponse.json(
+        { message: "Document not found or access denied." },
+        { status: 404 },
+      )
     }
-
-    return NextResponse.json({ ok: true, id: documentId, visibility })
+    return NextResponse.json({
+      ok: true,
+      id: documentId,
+      visibility,
+      shareUrl: buildShareUrl(request, documentId),
+    })
   } catch (error) {
-    return internalErrorResponse("Failed to update document visibility", error)
+    return internalErrorResponse("Failed to update document", error)
   }
 }
 
