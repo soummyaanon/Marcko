@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
+import { useEffect, useState } from "react";
 import {
   Share2,
   Link,
@@ -18,8 +18,10 @@ import {
   Globe,
   Lock,
   Pencil,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
+  Share,
+  Copy,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,49 +29,50 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 interface EditorToolbarProps {
-  onShare: (visibility: "public" | "private") => Promise<string>
-  onShareAuthRequired: () => void
-  onUpdateShare?: (docId: string, content: string) => Promise<string>
-  onEditDocument?: (docId: string) => void
-  editingDocumentId?: string | null
-  editorContent?: string
-  theme: "light" | "dark" | "system"
-  onThemeChange: (theme: "light" | "dark" | "system") => void
-  isAuthenticated: boolean
-  isAuthLoading: boolean
-  onSignIn: () => void
-  onSignOut: () => Promise<void>
-  onDeleteAccount: () => Promise<void>
-  userName?: string | null
-  userEmail?: string | null
-  userImage?: string | null
-  shareTriggerToken?: number
-  shareWarning?: string | null
+  onShare: (visibility: "public" | "private") => Promise<string>;
+  onShareAuthRequired: () => void;
+  onUpdateShare?: (docId: string, content: string) => Promise<string>;
+  onEditDocument?: (docId: string) => void;
+  editingDocumentId?: string | null;
+  editorContent?: string;
+  theme: "light" | "dark" | "system";
+  onThemeChange: (theme: "light" | "dark" | "system") => void;
+  isAuthenticated: boolean;
+  isAuthLoading: boolean;
+  onSignIn: () => void;
+  onSignOut: () => Promise<void>;
+  onDeleteAccount: () => Promise<void>;
+  userName?: string | null;
+  userEmail?: string | null;
+  userImage?: string | null;
+  shareTriggerToken?: number;
+  shareWarning?: string | null;
 }
 
 type ShareHistoryItem = {
-  id: string
-  preview: string
-  createdAt: string
-  updatedAt: string
-  shareUrl: string
-  visibility: "public" | "private"
-}
+  id: string;
+  preview: string;
+  createdAt: string;
+  updatedAt: string;
+  shareUrl: string;
+  visibility: "public" | "private";
+};
 
 type ShareHistoryResponse = {
-  items?: ShareHistoryItem[]
-}
+  items?: ShareHistoryItem[];
+};
 
 const isAuthRequiredError = (error: unknown): boolean => {
   return (
@@ -77,14 +80,14 @@ const isAuthRequiredError = (error: unknown): boolean => {
     typeof error === "object" &&
     "code" in error &&
     (error as { code?: string }).code === "AUTH_REQUIRED"
-  )
-}
+  );
+};
 
 const formatHistoryDate = (value: string): string => {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "Unknown date"
-  return date.toLocaleString()
-}
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown date";
+  return date.toLocaleString();
+};
 
 export function EditorToolbar({
   onShare,
@@ -106,216 +109,297 @@ export function EditorToolbar({
   shareTriggerToken = 0,
   shareWarning = null,
 }: EditorToolbarProps) {
-  const [isSharing, setIsSharing] = useState(false)
-  const [isSigningOut, setIsSigningOut] = useState(false)
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
-  const [shareUrl, setShareUrl] = useState<string | null>(null)
-  const [showDialog, setShowDialog] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [showHistoryDialog, setShowHistoryDialog] = useState(false)
-  const [historyItems, setHistoryItems] = useState<ShareHistoryItem[]>([])
-  const [historyError, setHistoryError] = useState<string | null>(null)
-  const [isHistoryLoading, setIsHistoryLoading] = useState(false)
-  const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null)
-  const [revokingHistoryId, setRevokingHistoryId] = useState<string | null>(null)
-  const [showVisibilityPicker, setShowVisibilityPicker] = useState(false)
-  const [pendingVisibility, setPendingVisibility] = useState<"public" | "private">("public")
-  const [togglingVisibilityId, setTogglingVisibilityId] = useState<string | null>(null)
+  const [isSharing, setIsSharing] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [historyItems, setHistoryItems] = useState<ShareHistoryItem[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null);
+  const [revokingHistoryId, setRevokingHistoryId] = useState<string | null>(
+    null,
+  );
+  const [showVisibilityPicker, setShowVisibilityPicker] = useState(false);
+  const [pendingVisibility, setPendingVisibility] = useState<
+    "public" | "private"
+  >("public");
+  const [togglingVisibilityId, setTogglingVisibilityId] = useState<
+    string | null
+  >(null);
 
   const handleShare = async () => {
-    setIsSharing(true)
+    setIsSharing(true);
     try {
-      const url = await onShare(pendingVisibility)
-      setShareUrl(url)
-      setShowVisibilityPicker(false)
-      setShowDialog(true)
+      const url = await onShare(pendingVisibility);
+      setShareUrl(url);
+      setShowVisibilityPicker(false);
+      setShowDialog(true);
+
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        toast.success("Link copied to clipboard");
+        setTimeout(() => setCopied(false), 2000);
+      } catch (error) {
+        console.error("Failed to auto-copy share link:", error);
+        toast.error("Link generated, but clipboard copy failed");
+      }
     } catch (error) {
       if (isAuthRequiredError(error)) {
-        onShareAuthRequired()
-        return
+        onShareAuthRequired();
+        return;
       }
-      console.error("Failed to share:", error)
+      console.error("Failed to share:", error);
     } finally {
-      setIsSharing(false)
+      setIsSharing(false);
     }
-  }
+  };
 
   const handleUpdate = async () => {
-    if (!editingDocumentId || !onUpdateShare) return
-    setIsSharing(true)
+    if (!editingDocumentId || !onUpdateShare) return;
+    setIsSharing(true);
     try {
-      const url = await onUpdateShare(editingDocumentId, editorContent)
-      setShareUrl(url)
-      setShowDialog(true)
+      const url = await onUpdateShare(editingDocumentId, editorContent);
+      setShareUrl(url);
+      setShowDialog(true);
+
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        toast.success("Updated link copied to clipboard");
+        setTimeout(() => setCopied(false), 2000);
+      } catch (error) {
+        console.error("Failed to auto-copy updated share link:", error);
+        toast.error("Link updated, but clipboard copy failed");
+      }
     } catch (error) {
-      console.error("Failed to update document:", error)
+      console.error("Failed to update document:", error);
     } finally {
-      setIsSharing(false)
+      setIsSharing(false);
     }
-  }
+  };
 
   const handleSignOut = async () => {
-    setIsSigningOut(true)
+    setIsSigningOut(true);
     try {
-      await onSignOut()
+      await onSignOut();
     } catch (error) {
-      console.error("Failed to sign out:", error)
+      console.error("Failed to sign out:", error);
     } finally {
-      setIsSigningOut(false)
+      setIsSigningOut(false);
     }
-  }
+  };
 
   const handleDeleteAccount = async () => {
-    if (!window.confirm("Delete your account permanently? This cannot be undone.")) {
-      return
+    if (
+      !window.confirm("Delete your account permanently? This cannot be undone.")
+    ) {
+      return;
     }
 
-    setIsDeletingAccount(true)
+    setIsDeletingAccount(true);
     try {
-      await onDeleteAccount()
+      await onDeleteAccount();
     } catch (error) {
-      console.error("Failed to delete account:", error)
+      console.error("Failed to delete account:", error);
     } finally {
-      setIsDeletingAccount(false)
+      setIsDeletingAccount(false);
     }
-  }
+  };
 
   const avatarText = (() => {
-    const source = (userName || userEmail || "U").trim()
-    if (!source) return "U"
-    return source.slice(0, 2).toUpperCase()
-  })()
+    const source = (userName || userEmail || "U").trim();
+    if (!source) return "U";
+    return source.slice(0, 2).toUpperCase();
+  })();
 
   useEffect(() => {
     if (shareTriggerToken > 0) {
       // Auto-triggered share (post-OAuth redirect) — skip picker, use pending visibility
-      void handleShare()
+      void handleShare();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shareTriggerToken])
+  }, [shareTriggerToken]);
 
   const openSharePicker = () => {
-    setPendingVisibility("public")
-    setShowVisibilityPicker(true)
-  }
+    setPendingVisibility("public");
+    setShowVisibilityPicker(true);
+  };
 
-  const toggleVisibility = async (id: string, current: "public" | "private") => {
-    const next = current === "public" ? "private" : "public"
-    setTogglingVisibilityId(id)
+  const toggleVisibility = async (
+    id: string,
+    current: "public" | "private",
+  ) => {
+    const next = current === "public" ? "private" : "public";
+    setTogglingVisibilityId(id);
     try {
       const response = await fetch("/api/share", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id, visibility: next }),
-      })
+      });
 
       if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { message?: string } | null
-        throw new Error(errorData?.message || "Failed to update visibility")
+        const errorData = (await response.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+        throw new Error(errorData?.message || "Failed to update visibility");
       }
 
       setHistoryItems((previous) =>
-        previous.map((item) => (item.id === id ? { ...item, visibility: next } : item)),
-      )
+        previous.map((item) =>
+          item.id === id ? { ...item, visibility: next } : item,
+        ),
+      );
     } catch (error) {
-      console.error("Failed to toggle visibility:", error)
-      setHistoryError("Unable to update visibility right now.")
+      console.error("Failed to toggle visibility:", error);
+      setHistoryError("Unable to update visibility right now.");
     } finally {
-      setTogglingVisibilityId(null)
+      setTogglingVisibilityId(null);
     }
-  }
+  };
 
   const copyShareLink = async () => {
-    if (shareUrl) {
-      await navigator.clipboard.writeText(shareUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+    if (!shareUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success("Link copied to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy share link:", error);
+      toast.error("Unable to copy the link");
     }
-  }
+  };
+
+  const shareToApps = async () => {
+    if (!shareUrl) return;
+
+    const shareData = {
+      title: "Shared document",
+      text: "Check this out",
+      url: shareUrl,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        console.error("Failed to open native share sheet:", error);
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success("Link copied to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy share link:", error);
+      toast.error("Unable to share or copy the link");
+    }
+  };
 
   const loadHistory = async () => {
-    if (!isAuthenticated) return
+    if (!isAuthenticated) return;
 
-    setIsHistoryLoading(true)
-    setHistoryError(null)
+    setIsHistoryLoading(true);
+    setHistoryError(null);
 
     try {
       const response = await fetch("/api/share?limit=25", {
         method: "GET",
         cache: "no-store",
-      })
+      });
 
       if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { message?: string } | null
-        throw new Error(errorData?.message || "Failed to load share history")
+        const errorData = (await response.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+        throw new Error(errorData?.message || "Failed to load share history");
       }
 
-      const data = (await response.json()) as ShareHistoryResponse
-      setHistoryItems(Array.isArray(data.items) ? data.items : [])
+      const data = (await response.json()) as ShareHistoryResponse;
+      setHistoryItems(Array.isArray(data.items) ? data.items : []);
     } catch (error) {
-      console.error("Failed to load share history:", error)
-      setHistoryItems([])
-      setHistoryError("Unable to load history right now.")
+      console.error("Failed to load share history:", error);
+      setHistoryItems([]);
+      setHistoryError("Unable to load history right now.");
     } finally {
-      setIsHistoryLoading(false)
+      setIsHistoryLoading(false);
     }
-  }
+  };
 
   const handleHistoryToggle = () => {
     if (!isAuthenticated) {
-      onSignIn()
-      return
+      onSignIn();
+      return;
     }
 
-    const nextOpenState = !showHistoryDialog
-    setShowHistoryDialog(nextOpenState)
+    const nextOpenState = !showHistoryDialog;
+    setShowHistoryDialog(nextOpenState);
 
     if (nextOpenState) {
-      void loadHistory()
+      void loadHistory();
     }
-  }
+  };
 
   const copyHistoryLink = async (url: string, id: string) => {
-    await navigator.clipboard.writeText(url)
-    setCopiedHistoryId(id)
-    setTimeout(() => setCopiedHistoryId(null), 2000)
-  }
+    await navigator.clipboard.writeText(url);
+    setCopiedHistoryId(id);
+    setTimeout(() => setCopiedHistoryId(null), 2000);
+  };
 
   const revokeHistoryLink = async (id: string) => {
-    if (!window.confirm("Revoke this shared link? People with this URL will no longer be able to view it.")) {
-      return
+    if (
+      !window.confirm(
+        "Revoke this shared link? People with this URL will no longer be able to view it.",
+      )
+    ) {
+      return;
     }
 
-    setRevokingHistoryId(id)
+    setRevokingHistoryId(id);
     try {
       const response = await fetch(`/api/share?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
-      })
+      });
 
       if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { message?: string } | null
-        throw new Error(errorData?.message || "Failed to revoke shared link")
+        const errorData = (await response.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+        throw new Error(errorData?.message || "Failed to revoke shared link");
       }
 
-      setHistoryItems((previous) => previous.filter((item) => item.id !== id))
+      setHistoryItems((previous) => previous.filter((item) => item.id !== id));
       if (copiedHistoryId === id) {
-        setCopiedHistoryId(null)
+        setCopiedHistoryId(null);
       }
     } catch (error) {
-      console.error("Failed to revoke shared link:", error)
-      setHistoryError("Unable to revoke this link right now.")
+      console.error("Failed to revoke shared link:", error);
+      setHistoryError("Unable to revoke this link right now.");
     } finally {
-      setRevokingHistoryId(null)
+      setRevokingHistoryId(null);
     }
-  }
+  };
 
   useEffect(() => {
-    if (isAuthenticated) return
-    setShowHistoryDialog(false)
-    setHistoryItems([])
-    setHistoryError(null)
-    setCopiedHistoryId(null)
-  }, [isAuthenticated])
+    if (isAuthenticated) return;
+    setShowHistoryDialog(false);
+    setHistoryItems([]);
+    setHistoryError(null);
+    setCopiedHistoryId(null);
+  }, [isAuthenticated]);
 
   return (
     <>
@@ -326,7 +410,9 @@ export function EditorToolbar({
           </div>
           <div>
             <h1 className="text-lg font-semibold text-foreground">Marcko</h1>
-            <p className="hidden text-xs text-muted-foreground sm:block">Markdown Editor</p>
+            <p className="hidden text-xs text-muted-foreground sm:block">
+              Markdown Editor
+            </p>
           </div>
           <div className="hidden items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 md:flex dark:text-emerald-300">
             <ShieldCheck className="h-3 w-3" />
@@ -372,8 +458,14 @@ export function EditorToolbar({
           </Button>
 
           <Button
-            onClick={editingDocumentId && onUpdateShare ? () => void handleUpdate() : openSharePicker}
-            disabled={isSharing || (editingDocumentId && !editorContent?.trim())}
+            onClick={
+              editingDocumentId && onUpdateShare
+                ? () => void handleUpdate()
+                : openSharePicker
+            }
+            disabled={
+              isSharing || Boolean(editingDocumentId && !editorContent?.trim())
+            }
             className="gap-2"
             size="sm"
           >
@@ -424,7 +516,9 @@ export function EditorToolbar({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel className="space-y-0.5">
-                  <p className="truncate text-sm font-medium">{userName || "Account"}</p>
+                  <p className="truncate text-sm font-medium">
+                    {userName || "Account"}
+                  </p>
                   {userEmail ? (
                     <p className="truncate text-xs font-normal text-muted-foreground">
                       {userEmail}
@@ -437,7 +531,11 @@ export function EditorToolbar({
                   disabled={isSigningOut || isDeletingAccount}
                   className="gap-2"
                 >
-                  {isSigningOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut />}
+                  {isSigningOut ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <LogOut />
+                  )}
                   <span>Log out</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -468,7 +566,10 @@ export function EditorToolbar({
         </div>
       ) : null}
 
-      <Dialog open={showVisibilityPicker} onOpenChange={setShowVisibilityPicker}>
+      <Dialog
+        open={showVisibilityPicker}
+        onOpenChange={setShowVisibilityPicker}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Share visibility</DialogTitle>
@@ -489,7 +590,9 @@ export function EditorToolbar({
               <Globe className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <div>
                 <p className="text-sm font-medium">Public</p>
-                <p className="text-xs text-muted-foreground">Anyone with the link can view</p>
+                <p className="text-xs text-muted-foreground">
+                  Anyone with the link can view
+                </p>
               </div>
             </button>
             <button
@@ -504,7 +607,9 @@ export function EditorToolbar({
               <Lock className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
               <div>
                 <p className="text-sm font-medium">Private</p>
-                <p className="text-xs text-muted-foreground">Only signed-in users can view</p>
+                <p className="text-xs text-muted-foreground">
+                  Only signed-in users can view
+                </p>
               </div>
             </button>
           </div>
@@ -543,13 +648,14 @@ export function EditorToolbar({
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Link className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                readOnly
-                value={shareUrl || ""}
-                className="pl-9 pr-4"
-              />
+              <Input readOnly value={shareUrl || ""} className="pl-9 pr-4" />
             </div>
-            <Button onClick={copyShareLink} size="sm" className="shrink-0 gap-1.5">
+            <Button
+              onClick={copyShareLink}
+              size="sm"
+              variant="outline"
+              className="shrink-0 gap-1.5"
+            >
               {copied ? (
                 <>
                   <Check className="h-4 w-4" />
@@ -557,27 +663,40 @@ export function EditorToolbar({
                 </>
               ) : (
                 <>
-                  <Link className="h-4 w-4" />
+                  <Copy className="h-4 w-4" />
                   Copy
                 </>
               )}
             </Button>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full gap-1.5"
+            onClick={() => void shareToApps()}
+            disabled={!shareUrl}
+          >
+            <Share className="h-4 w-4" />
+            Share via apps
+          </Button>
         </DialogContent>
       </Dialog>
 
       <Dialog
         open={showHistoryDialog}
         onOpenChange={(open) => {
-          setShowHistoryDialog(open)
+          setShowHistoryDialog(open);
           if (open && isAuthenticated) {
-            void loadHistory()
+            void loadHistory();
           }
         }}
       >
         <DialogContent className="flex max-h-[min(400px,calc(100dvh-2rem))] w-full max-w-[calc(100vw-2rem)] flex-col overflow-hidden p-4 sm:max-w-lg sm:p-5">
           <DialogHeader className="min-w-0 shrink-0 gap-1 pr-8 sm:pr-10">
-            <DialogTitle className="break-words text-base">Your share history</DialogTitle>
+            <DialogTitle className="break-words text-base">
+              Your share history
+            </DialogTitle>
             <DialogDescription className="break-words text-xs">
               Reopen or revoke shared links.
             </DialogDescription>
@@ -595,7 +714,12 @@ export function EditorToolbar({
             ) : historyError ? (
               <div className="shrink-0 space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-2.5">
                 <p className="text-xs text-destructive">{historyError}</p>
-                <Button size="sm" variant="outline" onClick={() => void loadHistory()} className="h-7 text-xs">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void loadHistory()}
+                  className="h-7 text-xs"
+                >
                   Retry
                 </Button>
               </div>
@@ -643,8 +767,18 @@ export function EditorToolbar({
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <Button variant="outline" size="sm" asChild className="h-7 gap-1 text-xs">
-                        <a href={item.shareUrl} target="_blank" rel="noreferrer" className="gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className="h-7 gap-1 text-xs"
+                      >
+                        <a
+                          href={item.shareUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="gap-1"
+                        >
                           <ExternalLink className="h-3.5 w-3.5" />
                           Open
                         </a>
@@ -653,7 +787,9 @@ export function EditorToolbar({
                         variant="outline"
                         size="sm"
                         className="h-7 gap-1 text-xs"
-                        onClick={() => void copyHistoryLink(item.shareUrl, item.id)}
+                        onClick={() =>
+                          void copyHistoryLink(item.shareUrl, item.id)
+                        }
                       >
                         {copiedHistoryId === item.id ? (
                           <>
@@ -673,8 +809,8 @@ export function EditorToolbar({
                           size="sm"
                           className="h-7 gap-1 text-xs"
                           onClick={() => {
-                            onEditDocument(item.id)
-                            setShowHistoryDialog(false)
+                            onEditDocument(item.id);
+                            setShowHistoryDialog(false);
                           }}
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -685,7 +821,9 @@ export function EditorToolbar({
                         variant="outline"
                         size="sm"
                         className="h-7 gap-1 text-xs"
-                        onClick={() => void toggleVisibility(item.id, item.visibility)}
+                        onClick={() =>
+                          void toggleVisibility(item.id, item.visibility)
+                        }
                         disabled={togglingVisibilityId === item.id}
                       >
                         {togglingVisibilityId === item.id ? (
@@ -733,5 +871,5 @@ export function EditorToolbar({
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }
