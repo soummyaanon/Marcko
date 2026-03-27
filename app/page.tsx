@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState, useEffect, useCallback } from "react"
+import { Suspense, useState, useEffect, useCallback, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { MarkdownEditor } from "@/components/markdown-editor"
 import { MarkdownPreview } from "@/components/markdown-preview"
@@ -197,6 +197,38 @@ const createAuthRequiredError = (message: string) => {
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 
+type ScrollPane = "editor" | "preview"
+
+const getMaxScrollTop = (element: HTMLDivElement) => {
+  return Math.max(element.scrollHeight - element.clientHeight, 0)
+}
+
+const getScrollRatio = (element: HTMLDivElement) => {
+  const maxScrollTop = getMaxScrollTop(element)
+  if (maxScrollTop <= 0) {
+    return 0
+  }
+
+  return element.scrollTop / maxScrollTop
+}
+
+const setScrollRatio = (element: HTMLDivElement, ratio: number) => {
+  const maxScrollTop = getMaxScrollTop(element)
+  if (maxScrollTop <= 0) {
+    element.scrollTop = 0
+    return
+  }
+
+  const clampedRatio = Math.min(Math.max(ratio, 0), 1)
+  const nextScrollTop = clampedRatio * maxScrollTop
+
+  if (Math.abs(element.scrollTop - nextScrollTop) < 1) {
+    return
+  }
+
+  element.scrollTop = nextScrollTop
+}
+
 function HomeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -210,6 +242,12 @@ function HomeContent() {
   const [shareWarning, setShareWarning] = useState<string | null>(null)
   const [direction, setDirection] = useState<"horizontal" | "vertical">("horizontal")
   const [isDraftReady, setIsDraftReady] = useState(false)
+  const editorScrollRef = useRef<HTMLDivElement>(null)
+  const previewScrollRef = useRef<HTMLDivElement>(null)
+  const activeScrollPaneRef = useRef<ScrollPane>("editor")
+  const syncFrameRef = useRef<number | null>(null)
+  const unlockFrameRef = useRef<number | null>(null)
+  const isProgrammaticScrollRef = useRef(false)
   const { data: session, isPending: isSessionPending } = authClient.useSession()
   const sessionUser =
     (session as {
@@ -221,6 +259,72 @@ function HomeContent() {
       } | null
     } | null)?.data?.user ??
     null
+
+  const clearSyncFrame = useCallback(() => {
+    if (syncFrameRef.current !== null) {
+      cancelAnimationFrame(syncFrameRef.current)
+      syncFrameRef.current = null
+    }
+  }, [])
+
+  const releaseProgrammaticScrollLock = useCallback(() => {
+    if (unlockFrameRef.current !== null) {
+      cancelAnimationFrame(unlockFrameRef.current)
+    }
+
+    unlockFrameRef.current = requestAnimationFrame(() => {
+      isProgrammaticScrollRef.current = false
+      unlockFrameRef.current = null
+    })
+  }, [])
+
+  const syncScroll = useCallback(
+    (sourcePane: ScrollPane) => {
+      const sourceElement =
+        sourcePane === "editor" ? editorScrollRef.current : previewScrollRef.current
+      const targetElement =
+        sourcePane === "editor" ? previewScrollRef.current : editorScrollRef.current
+
+      if (!sourceElement || !targetElement) {
+        return
+      }
+
+      const scrollRatio = getScrollRatio(sourceElement)
+      isProgrammaticScrollRef.current = true
+      setScrollRatio(targetElement, scrollRatio)
+      releaseProgrammaticScrollLock()
+    },
+    [releaseProgrammaticScrollLock],
+  )
+
+  const scheduleSync = useCallback(
+    (sourcePane: ScrollPane) => {
+      activeScrollPaneRef.current = sourcePane
+      clearSyncFrame()
+
+      syncFrameRef.current = requestAnimationFrame(() => {
+        syncFrameRef.current = null
+        syncScroll(sourcePane)
+      })
+    },
+    [clearSyncFrame, syncScroll],
+  )
+
+  const handleEditorScroll = useCallback(() => {
+    if (isProgrammaticScrollRef.current) {
+      return
+    }
+
+    scheduleSync("editor")
+  }, [scheduleSync])
+
+  const handlePreviewScroll = useCallback(() => {
+    if (isProgrammaticScrollRef.current) {
+      return
+    }
+
+    scheduleSync("preview")
+  }, [scheduleSync])
 
   useEffect(() => {
     try {
@@ -252,7 +356,7 @@ function HomeContent() {
 
   useEffect(() => {
     const root = document.documentElement
-    
+
     if (theme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
       root.classList.toggle("dark", systemTheme)
@@ -274,7 +378,7 @@ function HomeContent() {
     const checkDirection = () => {
       setDirection(window.innerWidth < 768 ? "vertical" : "horizontal")
     }
-    
+
     checkDirection()
     window.addEventListener("resize", checkDirection)
     return () => window.removeEventListener("resize", checkDirection)
@@ -482,6 +586,43 @@ function HomeContent() {
     setShareWarning(null)
   }, [isSessionPending, sessionUser])
 
+  useEffect(() => {
+    return () => {
+      clearSyncFrame()
+
+      if (unlockFrameRef.current !== null) {
+        cancelAnimationFrame(unlockFrameRef.current)
+      }
+    }
+  }, [clearSyncFrame])
+
+  useEffect(() => {
+    const syncPane = activeScrollPaneRef.current
+    const frameId = requestAnimationFrame(() => {
+      syncScroll(syncPane)
+    })
+
+    return () => cancelAnimationFrame(frameId)
+  }, [direction, markdown, syncScroll])
+
+  useEffect(() => {
+    const editorElement = editorScrollRef.current
+    const previewElement = previewScrollRef.current
+
+    if (!editorElement || !previewElement) {
+      return
+    }
+
+    const observer = new ResizeObserver(() => {
+      scheduleSync(activeScrollPaneRef.current)
+    })
+
+    observer.observe(editorElement)
+    observer.observe(previewElement)
+
+    return () => observer.disconnect()
+  }, [scheduleSync])
+
   if (showFullPreview) {
     return (
       <SharedDocumentView
@@ -513,26 +654,37 @@ function HomeContent() {
         shareTriggerToken={shareTriggerToken}
         shareWarning={shareWarning}
       />
-      
+
       <main className="flex flex-1 flex-col overflow-hidden">
         <ResizablePanelGroup direction={direction}>
           <ResizablePanel defaultSize={40} minSize={20}>
             <div className="flex h-full flex-col border-r border-border">
-              <MarkdownEditor value={markdown} onChange={setMarkdown} defaultContent={DEFAULT_MARKDOWN} />
+              <MarkdownEditor
+                value={markdown}
+                onChange={setMarkdown}
+                defaultContent={DEFAULT_MARKDOWN}
+                scrollContainerRef={editorScrollRef}
+                onScroll={handleEditorScroll}
+              />
             </div>
           </ResizablePanel>
-          
+
           <ResizableHandle withHandle />
-          
+
           <ResizablePanel defaultSize={60} minSize={20}>
             <div className="flex h-full flex-col">
-              <MarkdownPreview content={markdown} onOpenPreview={() => setShowFullPreview(true)} />
+              <MarkdownPreview
+                content={markdown}
+                onOpenPreview={() => setShowFullPreview(true)}
+                scrollContainerRef={previewScrollRef}
+                onScroll={handlePreviewScroll}
+              />
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
       </main>
 
-      <footer className="border-t border-border bg-muted/30 px-4 py-2 md:px-6"> 
+      <footer className="border-t border-border bg-muted/30 px-4 py-2 md:px-6">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 sm:flex-row">
           <div className="flex flex-col items-center gap-1 sm:items-start">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
