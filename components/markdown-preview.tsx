@@ -23,12 +23,16 @@ interface MarkdownPreviewProps {
   content: string
   showCopyButton?: boolean
   onOpenPreview?: () => void
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>
+  onScroll?: React.UIEventHandler<HTMLDivElement>
 }
 
 export function MarkdownPreview({
   content,
   showCopyButton = true,
   onOpenPreview,
+  scrollContainerRef,
+  onScroll,
 }: MarkdownPreviewProps) {
   const previewRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
@@ -42,14 +46,14 @@ export function MarkdownPreview({
         range.selectNodeContents(previewRef.current)
         selection?.removeAllRanges()
         selection?.addRange(range)
-        
+
         await navigator.clipboard.write([
           new ClipboardItem({
             "text/html": new Blob([previewRef.current.innerHTML], { type: "text/html" }),
             "text/plain": new Blob([previewRef.current.innerText], { type: "text/plain" }),
           }),
         ])
-        
+
         selection?.removeAllRanges()
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
@@ -147,7 +151,11 @@ export function MarkdownPreview({
           </Button>
         )}
       </div>
-      <div className="flex-1 overflow-auto min-h-0">
+      <div
+        ref={scrollContainerRef}
+        onScroll={onScroll}
+        className="flex-1 overflow-auto min-h-0"
+      >
         <div
           ref={previewRef}
           className="markdown-content py-4 pr-4 pl-10"

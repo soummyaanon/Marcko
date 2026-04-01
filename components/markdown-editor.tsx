@@ -11,15 +11,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { normalizeMarkdownImageHtml } from "@/lib/markdown"
-import { 
-  Bold, 
-  Italic, 
-  Strikethrough, 
-  Heading1, 
-  List, 
-  ListOrdered, 
-  Quote, 
-  Code, 
+import {
+  Bold,
+  Italic,
+  Strikethrough,
+  Heading1,
+  List,
+  ListOrdered,
+  Quote,
+  Code,
   Link as LinkIcon,
   Upload,
   Workflow,
@@ -31,17 +31,25 @@ interface MarkdownEditorProps {
   value: string
   onChange: (value: string) => void
   defaultContent?: string
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>
+  onScroll?: React.UIEventHandler<HTMLDivElement>
 }
 
-export function MarkdownEditor({ value, onChange, defaultContent }: MarkdownEditorProps) {
+export function MarkdownEditor({
+  value,
+  onChange,
+  defaultContent,
+  scrollContainerRef,
+  onScroll,
+}: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const mermaidTemplate = "graph TD\n    A[Write Markdown] --> B[Live Preview]"
-  
+
   // History state
   const [history, setHistory] = React.useState<string[]>([value])
   const [historyIndex, setHistoryIndex] = React.useState(0)
-  
+
   // Ref to track if we're ignoring updates (e.g. during undo/redo) to prevent double history
   const ignoreHistoryUpdate = useRef(false)
   const lastHistoryValue = useRef(value)
@@ -58,7 +66,7 @@ export function MarkdownEditor({ value, onChange, defaultContent }: MarkdownEdit
   // Since this component is controlled, we mostly rely on our own internal triggers for "significant" history points,
   // but we can also check for major divergences. For simplicity in this controlled environment,
   // we'll rely on our specific change handlers to push history, rather than a global effect on 'value'.
-  
+
   const addToHistory = (newValue: string) => {
     // If the value hasn't effectively changed, don't add
     if (newValue === history[historyIndex]) return
@@ -96,45 +104,45 @@ export function MarkdownEditor({ value, onChange, defaultContent }: MarkdownEdit
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Shortcuts
     if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
-        switch (e.key.toLowerCase()) {
-            case 'b':
-                e.preventDefault()
-                handleFormat("**", "**", "bold text")
-                return
-            case 'i':
-                e.preventDefault()
-                handleFormat("*", "*", "italic text")
-                return
-            case 'k':
-                e.preventDefault()
-                handleFormat("[", "](url)", "link text")
-                return
-            case 'z':
-                e.preventDefault()
-                handleUndo()
-                return
-        }
+      switch (e.key.toLowerCase()) {
+        case 'b':
+          e.preventDefault()
+          handleFormat("**", "**", "bold text")
+          return
+        case 'i':
+          e.preventDefault()
+          handleFormat("*", "*", "italic text")
+          return
+        case 'k':
+          e.preventDefault()
+          handleFormat("[", "](url)", "link text")
+          return
+        case 'z':
+          e.preventDefault()
+          handleUndo()
+          return
+      }
     }
 
     if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
-         switch (e.key.toLowerCase()) {
-             case 'z':
-                 e.preventDefault()
-                 handleRedo()
-                 return
-             case 's':
-                 e.preventDefault()
-                 handleFormat("~~", "~~", "strikethrough text")
-                 return
-             case 'c':
-                 e.preventDefault()
-                 handleFormat("`", "`", "code")
-                 return
-             case 'm':
-                 e.preventDefault()
-                 handleFormat("```mermaid\n", "\n```", mermaidTemplate)
-                 return
-         }
+      switch (e.key.toLowerCase()) {
+        case 'z':
+          e.preventDefault()
+          handleRedo()
+          return
+        case 's':
+          e.preventDefault()
+          handleFormat("~~", "~~", "strikethrough text")
+          return
+        case 'c':
+          e.preventDefault()
+          handleFormat("`", "`", "code")
+          return
+        case 'm':
+          e.preventDefault()
+          handleFormat("```mermaid\n", "\n```", mermaidTemplate)
+          return
+      }
     }
 
     if (e.key === "Tab") {
@@ -162,7 +170,7 @@ export function MarkdownEditor({ value, onChange, defaultContent }: MarkdownEdit
     const start = textarea.selectionStart
     const end = textarea.selectionEnd
     const selectedText = value.substring(start, end)
-    
+
     let newText = ""
     let newCursorPos = 0
 
@@ -176,16 +184,16 @@ export function MarkdownEditor({ value, onChange, defaultContent }: MarkdownEdit
 
     updateValue(newText, true)
     textarea.focus()
-    
+
     // We need to wait for the value to update before setting selection
     setTimeout(() => {
-        textarea.selectionStart = newCursorPos
-        textarea.selectionEnd = newCursorPos
-        // If it was a placeholder insertion (no selection), select the placeholder text so user can type over it
-        if (!selectedText) {
-             textarea.selectionStart = start + prefix.length
-             textarea.selectionEnd = start + prefix.length + placeholder.length
-        }
+      textarea.selectionStart = newCursorPos
+      textarea.selectionEnd = newCursorPos
+      // If it was a placeholder insertion (no selection), select the placeholder text so user can type over it
+      if (!selectedText) {
+        textarea.selectionStart = start + prefix.length
+        textarea.selectionEnd = start + prefix.length + placeholder.length
+      }
     }, 0)
   }
 
@@ -196,25 +204,25 @@ export function MarkdownEditor({ value, onChange, defaultContent }: MarkdownEdit
   // but capture history on space/enter/paste?
   // Let's stick to updating purely on specific actions for now, OR wrap onChange to save every X seconds?
   // User asked for "cmd+z" which usually implies typing history too.
-  
+
   // Let's implementing a simple "save on pause" logic?
   // Or simpler: Save on every change but CAP the history size? No, too many state updates.
   // Let's save on ' ' (space) and Enter for now as a heuristic for "finished a word/line".
-  
+
   const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
-      const newValue = (e.target as HTMLTextAreaElement).value
-      onChange(newValue)
-      
-      // Heuristic: Save history on space, enter, or if length diff is large (paste)
-      const diff = Math.abs(newValue.length - history[historyIndex].length)
-      if (diff > 5 || newValue.endsWith(' ') || newValue.endsWith('\n')) {
-          // We don't want to save EVERY space, but maybe good enough for now?
-          // Actually, let's just use a debounced saver?
-      }
-      
-      // Better: Just use a timeout to save history 1s after last type
+    const newValue = (e.target as HTMLTextAreaElement).value
+    onChange(newValue)
+
+    // Heuristic: Save history on space, enter, or if length diff is large (paste)
+    const diff = Math.abs(newValue.length - history[historyIndex].length)
+    if (diff > 5 || newValue.endsWith(' ') || newValue.endsWith('\n')) {
+      // We don't want to save EVERY space, but maybe good enough for now?
+      // Actually, let's just use a debounced saver?
+    }
+
+    // Better: Just use a timeout to save history 1s after last type
   }
-  
+
   // We need a ref to access the latest params in the timeout
   const latestValueRef = useRef(value)
   useEffect(() => { latestValueRef.current = value }, [value])
@@ -226,25 +234,25 @@ export function MarkdownEditor({ value, onChange, defaultContent }: MarkdownEdit
   const debounceTimer = useRef<NodeJS.Timeout>(null)
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const newValue = e.target.value
-      onChange(newValue)
-      
-      if (debounceTimer.current) clearTimeout(debounceTimer.current)
-      
-      debounceTimer.current = setTimeout(() => {
-          // Save to history after 1s of inactivity
-           const currentIndex = latestHistoryIndexRef.current
-           const currentHistory = latestHistoryRef.current
-           // Only add if different from current head
-           if (newValue !== currentHistory[currentIndex]) {
-               setHistory(prev => {
-                   const newH = prev.slice(0, currentIndex + 1)
-                   newH.push(newValue)
-                   return newH
-               })
-               setHistoryIndex(prev => prev + 1)
-           }
-      }, 1000)
+    const newValue = e.target.value
+    onChange(newValue)
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+
+    debounceTimer.current = setTimeout(() => {
+      // Save to history after 1s of inactivity
+      const currentIndex = latestHistoryIndexRef.current
+      const currentHistory = latestHistoryRef.current
+      // Only add if different from current head
+      if (newValue !== currentHistory[currentIndex]) {
+        setHistory(prev => {
+          const newH = prev.slice(0, currentIndex + 1)
+          newH.push(newValue)
+          return newH
+        })
+        setHistoryIndex(prev => prev + 1)
+      }
+    }, 1000)
   }
 
   const handleFileUploadClick = () => {
@@ -405,7 +413,7 @@ export function MarkdownEditor({ value, onChange, defaultContent }: MarkdownEdit
           ) : null}
         </TooltipProvider>
       </div>
-      <div className="flex-1 overflow-auto">
+      <div ref={scrollContainerRef} onScroll={onScroll} className="flex-1 overflow-auto">
         <textarea
           ref={textareaRef}
           value={value}
