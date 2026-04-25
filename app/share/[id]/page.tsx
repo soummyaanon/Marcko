@@ -3,11 +3,20 @@ import { headers } from "next/headers"
 import { auth, authDbPool } from "@/lib/auth"
 import { SharedDocumentView } from "@/components/shared-document-view"
 import { PrivateDocumentGate } from "@/components/auth/private-document-gate"
-import { decryptStoredContent, verifySignedAccessToken } from "@/lib/secure-content"
+import { buildContentPreview, decryptStoredContent, verifySignedAccessToken } from "@/lib/secure-content"
 
 interface SharePageProps {
   params: Promise<{ id: string }>
   searchParams: Promise<{ token?: string }>
+}
+
+const DEFAULT_SHARE_TITLE = "Shared Document"
+const DEFAULT_SHARE_DESCRIPTION = "View this shared markdown document created with Marcko"
+const DEFAULT_OG_IMAGE = {
+  url: "/og.png",
+  width: 1200,
+  height: 630,
+  alt: "Marcko - Open Source Markdown Editor with Enterprise Secure Sharing",
 }
 
 async function getDocumentWithOwner(id: string) {
@@ -49,6 +58,27 @@ const getDecodedContent = (rawContent: unknown): string => {
   }
 }
 
+const getDocumentTitle = (content: string): string => {
+  const firstTextLine = content
+    .split("\n")
+    .map((line) => line.replace(/^#{1,6}\s*/, "").trim())
+    .find(Boolean)
+
+  return firstTextLine || DEFAULT_SHARE_TITLE
+}
+
+const getDocumentDescription = (content: string): string => {
+  const plainText = content
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/!\[[^\]]*]\([^)]+\)/g, " ")
+    .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/[*_~>#-]/g, " ")
+
+  return buildContentPreview(plainText, 180) || DEFAULT_SHARE_DESCRIPTION
+}
+
 export async function generateMetadata({ params }: SharePageProps) {
   const { id } = await params
   const doc = await getDocumentWithOwner(id)
@@ -60,13 +90,51 @@ export async function generateMetadata({ params }: SharePageProps) {
     }
   }
 
-  const firstLine = getDecodedContent(doc.content).split("\n")[0].replace(/^#\s*/, "").trim()
-  const title = firstLine || "Shared Document"
+  const visibility = doc.visibility === "private" ? "private" : "public"
+  if (visibility === "private") {
+    return {
+      title: DEFAULT_SHARE_TITLE,
+      description: DEFAULT_SHARE_DESCRIPTION,
+      robots: { index: false, follow: false },
+      openGraph: {
+        title: DEFAULT_SHARE_TITLE,
+        description: DEFAULT_SHARE_DESCRIPTION,
+        type: "article",
+        url: `/share/${id}`,
+        siteName: "Marcko",
+        images: [DEFAULT_OG_IMAGE],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: DEFAULT_SHARE_TITLE,
+        description: DEFAULT_SHARE_DESCRIPTION,
+        images: [DEFAULT_OG_IMAGE.url],
+      },
+    }
+  }
+
+  const decodedContent = getDecodedContent(doc.content)
+  const title = getDocumentTitle(decodedContent)
+  const description = getDocumentDescription(decodedContent)
 
   return {
     title,
-    description: "View this shared markdown document created with Marcko",
+    description,
     robots: { index: false, follow: false },
+    openGraph: {
+      title,
+      description,
+      type: "article",
+      url: `/share/${id}`,
+      siteName: "Marcko",
+      images: [DEFAULT_OG_IMAGE],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [DEFAULT_OG_IMAGE.url],
+    },
   }
 }
 
