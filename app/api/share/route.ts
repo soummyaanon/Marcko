@@ -402,6 +402,10 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
+  if (content === undefined) {
+    return NextResponse.json({ message: "Content is required." }, { status: 400 })
+  }
+
   let encryptedContent: string
   try {
     encryptedContent = encryptStoredContent(content)
