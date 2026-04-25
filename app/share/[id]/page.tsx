@@ -80,8 +80,8 @@ export async function generateMetadata({ params }: SharePageProps) {
   const origin = getSiteOrigin()
   const ogImage = {
     url: `${origin}/og.png`,
-    width: 1200,
-    height: 630,
+    width: 1784,
+    height: 882,
     alt: "Marcko - Open Source Markdown Editor with Enterprise Secure Sharing",
   }
 

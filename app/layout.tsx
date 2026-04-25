@@ -35,8 +35,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: "/og.png",
-        width: 1200,
-        height: 630,
+        width: 1784,
+        height: 882,
         alt: "Marcko - Open Source Markdown Editor with Enterprise Secure Sharing",
       },
     ],
@@ -46,6 +46,7 @@ export const metadata: Metadata = {
     title: "Marcko - Open Source Markdown Editor with Secure Document Sharing",
     description:
       "Open source markdown editor with real-time preview, secure document sharing, and AI integration.",
+    images: ["/og.png"],
   },
   icons: {
     icon: [
