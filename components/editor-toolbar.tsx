@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { copyTextToClipboard } from "@/lib/clipboard";
 
 interface EditorToolbarProps {
   onShare: (visibility: "public" | "private") => Promise<string>;
@@ -137,17 +138,21 @@ export function EditorToolbar({
       const url = await onShare(pendingVisibility);
       setShareUrl(url);
       setShowVisibilityPicker(false);
-      setShowDialog(true);
 
-      try {
-        await navigator.clipboard.writeText(url);
+      // Copy before opening the dialog — Radix focus scope makes the document unfocused,
+      // which causes navigator.clipboard.writeText to throw NotAllowedError.
+      const copiedOk = await copyTextToClipboard(url);
+      if (copiedOk) {
         setCopied(true);
         toast.success("Link copied to clipboard");
         setTimeout(() => setCopied(false), 2000);
-      } catch (error) {
-        console.error("Failed to auto-copy share link:", error);
-        toast.error("Link generated, but clipboard copy failed");
+      } else {
+        toast.message("Link ready", {
+          description: "Use the Copy button below to copy the URL.",
+        });
       }
+
+      setShowDialog(true);
     } catch (error) {
       if (isAuthRequiredError(error)) {
         onShareAuthRequired();
@@ -165,17 +170,19 @@ export function EditorToolbar({
     try {
       const url = await onUpdateShare(editingDocumentId, editorContent);
       setShareUrl(url);
-      setShowDialog(true);
 
-      try {
-        await navigator.clipboard.writeText(url);
+      const copiedOk = await copyTextToClipboard(url);
+      if (copiedOk) {
         setCopied(true);
         toast.success("Updated link copied to clipboard");
         setTimeout(() => setCopied(false), 2000);
-      } catch (error) {
-        console.error("Failed to auto-copy updated share link:", error);
-        toast.error("Link updated, but clipboard copy failed");
+      } else {
+        toast.message("Link updated", {
+          description: "Use the Copy button below to copy the URL.",
+        });
       }
+
+      setShowDialog(true);
     } catch (error) {
       console.error("Failed to update document:", error);
     } finally {
@@ -266,13 +273,12 @@ export function EditorToolbar({
   const copyShareLink = async () => {
     if (!shareUrl) return;
 
-    try {
-      await navigator.clipboard.writeText(shareUrl);
+    const ok = await copyTextToClipboard(shareUrl);
+    if (ok) {
       setCopied(true);
       toast.success("Link copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error("Failed to copy share link:", error);
+    } else {
       toast.error("Unable to copy the link");
     }
   };
@@ -298,13 +304,12 @@ export function EditorToolbar({
       }
     }
 
-    try {
-      await navigator.clipboard.writeText(shareUrl);
+    const ok = await copyTextToClipboard(shareUrl);
+    if (ok) {
       setCopied(true);
       toast.success("Link copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error("Failed to copy share link:", error);
+    } else {
       toast.error("Unable to share or copy the link");
     }
   };
@@ -354,9 +359,13 @@ export function EditorToolbar({
   };
 
   const copyHistoryLink = async (url: string, id: string) => {
-    await navigator.clipboard.writeText(url);
-    setCopiedHistoryId(id);
-    setTimeout(() => setCopiedHistoryId(null), 2000);
+    const ok = await copyTextToClipboard(url);
+    if (ok) {
+      setCopiedHistoryId(id);
+      setTimeout(() => setCopiedHistoryId(null), 2000);
+    } else {
+      toast.error("Unable to copy the link");
+    }
   };
 
   const revokeHistoryLink = async (id: string) => {

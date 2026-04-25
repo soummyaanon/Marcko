@@ -4,6 +4,7 @@ import { auth, authDbPool } from "@/lib/auth"
 import { SharedDocumentView } from "@/components/shared-document-view"
 import { PrivateDocumentGate } from "@/components/auth/private-document-gate"
 import { buildContentPreview, decryptStoredContent, verifySignedAccessToken } from "@/lib/secure-content"
+import { getSiteOrigin } from "@/lib/site-url"
 
 interface SharePageProps {
   params: Promise<{ id: string }>
@@ -12,12 +13,6 @@ interface SharePageProps {
 
 const DEFAULT_SHARE_TITLE = "Shared Document"
 const DEFAULT_SHARE_DESCRIPTION = "View this shared markdown document created with Marcko"
-const DEFAULT_OG_IMAGE = {
-  url: "/og.png",
-  width: 1200,
-  height: 630,
-  alt: "Marcko - Open Source Markdown Editor with Enterprise Secure Sharing",
-}
 
 async function getDocumentWithOwner(id: string) {
   let result
@@ -82,6 +77,13 @@ const getDocumentDescription = (content: string): string => {
 export async function generateMetadata({ params }: SharePageProps) {
   const { id } = await params
   const doc = await getDocumentWithOwner(id)
+  const origin = getSiteOrigin()
+  const ogImage = {
+    url: `${origin}/og.png`,
+    width: 1200,
+    height: 630,
+    alt: "Marcko - Open Source Markdown Editor with Enterprise Secure Sharing",
+  }
 
   if (!doc) {
     return {
@@ -93,6 +95,7 @@ export async function generateMetadata({ params }: SharePageProps) {
   const visibility = doc.visibility === "private" ? "private" : "public"
   if (visibility === "private") {
     return {
+      metadataBase: new URL(origin),
       title: DEFAULT_SHARE_TITLE,
       description: DEFAULT_SHARE_DESCRIPTION,
       robots: { index: false, follow: false },
@@ -100,15 +103,15 @@ export async function generateMetadata({ params }: SharePageProps) {
         title: DEFAULT_SHARE_TITLE,
         description: DEFAULT_SHARE_DESCRIPTION,
         type: "article",
-        url: `/share/${id}`,
+        url: `${origin}/share/${id}`,
         siteName: "Marcko",
-        images: [DEFAULT_OG_IMAGE],
+        images: [ogImage],
       },
       twitter: {
         card: "summary_large_image",
         title: DEFAULT_SHARE_TITLE,
         description: DEFAULT_SHARE_DESCRIPTION,
-        images: [DEFAULT_OG_IMAGE.url],
+        images: [ogImage.url],
       },
     }
   }
@@ -118,6 +121,7 @@ export async function generateMetadata({ params }: SharePageProps) {
   const description = getDocumentDescription(decodedContent)
 
   return {
+    metadataBase: new URL(origin),
     title,
     description,
     robots: { index: false, follow: false },
@@ -125,15 +129,15 @@ export async function generateMetadata({ params }: SharePageProps) {
       title,
       description,
       type: "article",
-      url: `/share/${id}`,
+      url: `${origin}/share/${id}`,
       siteName: "Marcko",
-      images: [DEFAULT_OG_IMAGE],
+      images: [ogImage],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [DEFAULT_OG_IMAGE.url],
+      images: [ogImage.url],
     },
   }
 }
