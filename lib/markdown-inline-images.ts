@@ -22,6 +22,22 @@ export function getMarckoInlineImageUrl (id: string): string | undefined {
   return getRegistry()[id]
 }
 
+/** Expands ![](marcko-inline:id) (and angled form) using the in-memory image registry → full data URLs. */
+const MARCKO_INLINE_MD_RE =
+  /!\[([^\]]*)]\(\s*<?(marcko-inline:([a-zA-Z0-9_-]{8,}))>?\s*\)/gi
+
+export function expandMarckoInlineImagesInMarkdown (markdown: string): string {
+  return markdown.replace(
+    MARCKO_INLINE_MD_RE,
+    (match, alt: string, _full: string, id: string) => {
+      const dataUrl = getMarckoInlineImageUrl(id)
+      if (!dataUrl) return match
+      const safeAlt = alt.replace(/\r?\n/g, ' ')
+      return `![${safeAlt}](<${dataUrl}>)`
+    },
+  )
+}
+
 /**
  * Compress long pasted image lines in the editor textarea (canonical markdown still holds full URLs).
  */

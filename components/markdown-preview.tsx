@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/tooltip"
 import { markdownComponentsWithMermaid, markdownUrlTransform } from "@/components/markdown-components"
 import { normalizeMarkdownImageHtml } from "@/lib/markdown"
+import { expandMarckoInlineImagesInMarkdown } from "@/lib/markdown-inline-images"
 
 interface MarkdownPreviewProps {
   content: string
@@ -36,7 +37,11 @@ export function MarkdownPreview({
 }: MarkdownPreviewProps) {
   const previewRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
-  const normalizedContent = useMemo(() => normalizeMarkdownImageHtml(content), [content])
+  const normalizedContent = useMemo(
+    () =>
+      expandMarckoInlineImagesInMarkdown(normalizeMarkdownImageHtml(content)),
+    [content],
+  )
 
   const copyRenderedContent = async () => {
     if (previewRef.current) {

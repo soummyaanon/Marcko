@@ -8,6 +8,7 @@ import { EditorToolbar } from "@/components/editor-toolbar"
 import { SharedDocumentView } from "@/components/shared-document-view"
 import { GoogleSignInModal } from "@/components/auth/google-sign-in-modal"
 import { authClient } from "@/lib/auth-client"
+import { expandMarckoInlineImagesInMarkdown } from "@/lib/markdown-inline-images"
 import { Github, Star } from "lucide-react"
 
 /** Bump this when you change DEFAULT_MARKDOWN to refresh the default for all users */
@@ -345,7 +346,10 @@ function HomeContent() {
       try {
         localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ content: markdown, defaultVersion: DEFAULT_CONTENT_VERSION }),
+          JSON.stringify({
+            content: expandMarckoInlineImagesInMarkdown(markdown),
+            defaultVersion: DEFAULT_CONTENT_VERSION,
+          }),
         )
       } catch {
         // Storage full or disabled
@@ -475,7 +479,7 @@ function HomeContent() {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          content: markdown,
+          content: expandMarckoInlineImagesInMarkdown(markdown),
           contentVersion: DEFAULT_CONTENT_VERSION,
         }),
       }).catch((error) => {
@@ -487,12 +491,13 @@ function HomeContent() {
   }, [markdown, sessionUser?.id, isDraftReady])
 
   const requestShare = useCallback(async (content: string, visibility: "public" | "private" = "public"): Promise<string> => {
+    const persistedContent = expandMarckoInlineImagesInMarkdown(content)
     const response = await fetch("/api/share", {
       method: "POST",
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify({ content, visibility }),
+      body: JSON.stringify({ content: persistedContent, visibility }),
     })
 
     if (!response.ok) {
@@ -521,12 +526,13 @@ function HomeContent() {
 
   const requestUpdateShare = useCallback(
     async (docId: string, content: string): Promise<string> => {
+      const persistedContent = expandMarckoInlineImagesInMarkdown(content)
       const response = await fetch("/api/share", {
         method: "PATCH",
         headers: {
           "content-type": "application/json",
         },
-        body: JSON.stringify({ id: docId, content }),
+        body: JSON.stringify({ id: docId, content: persistedContent }),
       })
 
       if (!response.ok) {

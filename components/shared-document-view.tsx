@@ -40,6 +40,7 @@ import { ClaudeAI } from "@/components/logo/claude"
 import { PerplexityAI } from "@/components/logo/perplexity"
 import { markdownComponentsWithMermaid, markdownUrlTransform } from "@/components/markdown-components"
 import { normalizeMarkdownImageHtml } from "@/lib/markdown"
+import { expandMarckoInlineImagesInMarkdown } from "@/lib/markdown-inline-images"
 
 type SharedBy = { type: "guest" } | { type: "user"; name: string }
 
@@ -65,7 +66,11 @@ export function SharedDocumentView({
   const [copiedLink, setCopiedLink] = useState(false)
   const [mounted, setMounted] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
-  const normalizedContent = useMemo(() => normalizeMarkdownImageHtml(content), [content])
+  const normalizedContent = useMemo(
+    () =>
+      expandMarckoInlineImagesInMarkdown(normalizeMarkdownImageHtml(content)),
+    [content],
+  )
   const hasShareLink = Boolean(documentId)
 
   useEffect(() => {
