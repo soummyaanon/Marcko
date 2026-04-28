@@ -45,6 +45,7 @@ export function MarkdownEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const mermaidTemplate = "graph TD\n    A[Write Markdown] --> B[Live Preview]"
+  const [isDraggingImage, setIsDraggingImage] = React.useState(false)
 
   // History state
   const [history, setHistory] = React.useState<string[]>([value])
@@ -259,6 +260,117 @@ export function MarkdownEditor({
     fileInputRef.current?.click()
   }
 
+  const getImageAltText = (file: File, index: number) => {
+    const name = file.name.replace(/\.[^/.]+$/, "").trim()
+    return name || `pasted image ${index + 1}`
+  }
+
+  const readImageAsMarkdown = (file: File, index: number) => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+
+      reader.onload = () => {
+        if (typeof reader.result !== "string") {
+          reject(new Error("Failed to read image file"))
+          return
+        }
+
+        resolve(`![${getImageAltText(file, index)}](${reader.result})`)
+      }
+
+      reader.onerror = () => reject(reader.error ?? new Error("Failed to read image file"))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const insertMarkdownAtCursor = (markdownSnippet: string) => {
+    const textarea = textareaRef.current
+    const start = textarea?.selectionStart ?? value.length
+    const end = textarea?.selectionEnd ?? value.length
+    const before = value.substring(0, start)
+    const after = value.substring(end)
+    const prefix = before && !before.endsWith("\n") ? "\n\n" : ""
+    const suffix = after && !after.startsWith("\n") ? "\n\n" : ""
+    const nextValue = before + prefix + markdownSnippet + suffix + after
+    const nextCursorPosition = start + prefix.length + markdownSnippet.length
+
+    updateValue(nextValue, true)
+
+    setTimeout(() => {
+      if (!textareaRef.current) return
+      textareaRef.current.focus()
+      textareaRef.current.selectionStart = nextCursorPosition
+      textareaRef.current.selectionEnd = nextCursorPosition
+    }, 0)
+  }
+
+  const insertImageFiles = async (files: File[]) => {
+    const imageFiles = files.filter((file) => file.type.startsWith("image/"))
+    if (imageFiles.length === 0) return false
+
+    try {
+      const imageMarkdown = await Promise.all(imageFiles.map(readImageAsMarkdown))
+      insertMarkdownAtCursor(imageMarkdown.join("\n\n"))
+      return true
+    } catch (error) {
+      console.error("Failed to insert image", error)
+      return false
+    }
+  }
+
+  const getClipboardImageFiles = (dataTransfer: DataTransfer | null) => {
+    if (!dataTransfer) return []
+
+    const itemFiles = Array.from(dataTransfer.items ?? [])
+      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => Boolean(file))
+
+    if (itemFiles.length > 0) {
+      return itemFiles
+    }
+
+    return Array.from(dataTransfer.files ?? []).filter((file) => file.type.startsWith("image/"))
+  }
+
+  const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const imageFiles = getClipboardImageFiles(e.clipboardData)
+    if (imageFiles.length === 0) return
+
+    e.preventDefault()
+    await insertImageFiles(imageFiles)
+  }
+
+  const handleDragEnter = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    if (getClipboardImageFiles(e.dataTransfer).length === 0) return
+
+    e.preventDefault()
+    setIsDraggingImage(true)
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    if (getClipboardImageFiles(e.dataTransfer).length === 0) return
+
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "copy"
+    setIsDraggingImage(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+
+    setIsDraggingImage(false)
+  }
+
+  const handleDrop = async (e: React.DragEvent<HTMLTextAreaElement>) => {
+    const imageFiles = getClipboardImageFiles(e.dataTransfer)
+    if (imageFiles.length === 0) return
+
+    e.preventDefault()
+    setIsDraggingImage(false)
+    await insertImageFiles(imageFiles)
+  }
+
   const handleMarkdownFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -413,14 +525,24 @@ export function MarkdownEditor({
           ) : null}
         </TooltipProvider>
       </div>
-      <div ref={scrollContainerRef} onScroll={onScroll} className="flex-1 overflow-auto">
+      <div ref={scrollContainerRef} onScroll={onScroll} className="relative flex-1 overflow-auto">
+        {isDraggingImage ? (
+          <div className="pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10 text-sm font-medium text-primary">
+            Drop image to insert Markdown
+          </div>
+        ) : null}
         <textarea
           ref={textareaRef}
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          className="h-full min-h-full w-full resize-none bg-background py-4 pr-4 pl-4 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"
-          placeholder="Start writing markdown here... Use ```mermaid blocks for diagrams."
+          onPaste={handlePaste}
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`h-full min-h-full w-full resize-none bg-background py-4 pr-4 pl-4 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none ${isDraggingImage ? "bg-primary/5" : ""}`}
+          placeholder="Start writing markdown here... Paste or drop images to insert them."
           spellCheck={false}
         />
       </div>
