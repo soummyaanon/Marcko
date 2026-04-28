@@ -3,7 +3,12 @@
 import type { ReactNode } from "react"
 import { isValidElement } from "react"
 import type { Components } from "react-markdown"
+import { defaultUrlTransform } from "react-markdown"
+import type { UrlTransform } from "react-markdown"
+import { getMarckoInlineImageUrl, MARCKO_INLINE_IMAGE_URL_RE } from "@/lib/markdown-inline-images"
 import { MermaidDiagram } from "@/components/mermaid-diagram"
+
+const IMAGE_DATA_URL_REGEX = /^data:image\/(?:png|jpe?g|gif|webp|avif);base64,/i
 
 const nodeToText = (node: ReactNode): string => {
   if (typeof node === "string" || typeof node === "number") {
@@ -32,6 +37,21 @@ const isSingleImageParagraph = (node: ReactNode): boolean => {
 
   const onlyChild = meaningfulChildren[0]
   return isValidElement(onlyChild) && onlyChild.type === "img"
+}
+
+export const markdownUrlTransform: UrlTransform = (url, key, node) => {
+  if (key === "src" && node.tagName === "img") {
+    const trimmed = url.trim()
+    const inlineMatch = MARCKO_INLINE_IMAGE_URL_RE.exec(trimmed)
+    const inlineId = inlineMatch?.[1]
+    if (inlineId) {
+      const resolved = getMarckoInlineImageUrl(inlineId)
+      if (resolved) return resolved
+    }
+    if (IMAGE_DATA_URL_REGEX.test(trimmed)) return trimmed
+  }
+
+  return defaultUrlTransform(url)
 }
 
 export const markdownComponentsWithMermaid: Components = {

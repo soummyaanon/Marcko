@@ -1,8 +1,9 @@
 "use client"
 
 import React from "react"
+import { nanoid } from "nanoid"
 
-import { useRef, useEffect } from "react"
+import { useRef, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -11,6 +12,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { normalizeMarkdownImageHtml } from "@/lib/markdown"
+import {
+  getMarckoInlineImageUrl,
+  registerMarckoInlineImage,
+  shortenDataImageMarkdownUrls,
+} from "@/lib/markdown-inline-images"
 import {
   Bold,
   Italic,
@@ -47,13 +53,59 @@ export function MarkdownEditor({
   const mermaidTemplate = "graph TD\n    A[Write Markdown] --> B[Live Preview]"
   const [isDraggingImage, setIsDraggingImage] = React.useState(false)
 
+  const displayMarkdown = useMemo(
+    () => shortenDataImageMarkdownUrls(value),
+    [value],
+  )
+
+  /** Migrate pasted huge base64 image lines once into compact marcko-inline tokens (+ registry). */
+  const migrateLegacyHugeDataUrls = useRef(false)
+  useEffect(() => {
+    if (migrateLegacyHugeDataUrls.current) return
+
+    let migrated = value
+    let changed = false
+
+    const migrateNext = (): void => {
+      const match = migrated.match(
+        /!\[([^\]]*)\]\(\s*(?:<(data:image\/[^>]+)>|(data:image\/[^)]+))\s*\)/i,
+      )
+      if (!match) return
+      const full = match[0]
+      const alt = (match[1] ?? '').trim()
+      const rawUrl = (match[2] ?? match[3] ?? '').trim()
+      if (rawUrl.length < 220) return
+
+      const id = nanoid(10)
+      registerMarckoInlineImage(id, rawUrl)
+      const token = alt ? `![${alt}](marcko-inline:${id})` : `![image](marcko-inline:${id})`
+      migrated = migrated.replace(full, token)
+      changed = true
+      migrateNext()
+    }
+
+    migrateNext()
+    if (!changed || migrated === value) return
+
+    migrateLegacyHugeDataUrls.current = true
+    onChange(migrated)
+  }, [value, onChange])
+
+  const displayToCanonicalMarkdown = (editedDisplay: string): string => {
+    return editedDisplay.replace(
+      /!\[([^\]]*)\]\(\s*marcko-inline:([a-zA-Z0-9_-]{8,})\s*\)/gi,
+      (match, alt: string, id: string) => {
+        const dataUrl = getMarckoInlineImageUrl(id)
+        if (!dataUrl) return match
+        const safeAlt = alt.replace(/\r?\n/g, " ")
+        return `![${safeAlt}](<${dataUrl}>)`
+      },
+    )
+  }
+
   // History state
   const [history, setHistory] = React.useState<string[]>([value])
   const [historyIndex, setHistoryIndex] = React.useState(0)
-
-  // Ref to track if we're ignoring updates (e.g. during undo/redo) to prevent double history
-  const ignoreHistoryUpdate = useRef(false)
-  const lastHistoryValue = useRef(value)
 
   useEffect(() => {
     const textarea = textareaRef.current
@@ -61,7 +113,7 @@ export function MarkdownEditor({
       textarea.style.height = "auto"
       textarea.style.height = `${textarea.scrollHeight}px`
     }
-  }, [value])
+  }, [displayMarkdown])
 
   // Update history when value changes externally or via typing (debounced or managed)
   // Since this component is controlled, we mostly rely on our own internal triggers for "significant" history points,
@@ -150,8 +202,11 @@ export function MarkdownEditor({
       e.preventDefault()
       const start = e.currentTarget.selectionStart
       const end = e.currentTarget.selectionEnd
-      const newValue = value.substring(0, start) + "  " + value.substring(end)
-      updateValue(newValue, true)
+      const currentDisplay = e.currentTarget.value
+      const newDisplay =
+        currentDisplay.substring(0, start) + "  " + currentDisplay.substring(end)
+      const canonical = displayToCanonicalMarkdown(newDisplay)
+      updateValue(canonical, true)
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 2
@@ -168,22 +223,23 @@ export function MarkdownEditor({
     const textarea = textareaRef.current
     if (!textarea) return
 
+    const current = textarea.value
     const start = textarea.selectionStart
     const end = textarea.selectionEnd
-    const selectedText = value.substring(start, end)
+    const selectedText = current.substring(start, end)
 
     let newText = ""
     let newCursorPos = 0
 
     if (selectedText) {
-      newText = value.substring(0, start) + prefix + selectedText + suffix + value.substring(end)
+      newText = current.substring(0, start) + prefix + selectedText + suffix + current.substring(end)
       newCursorPos = start + prefix.length + selectedText.length + suffix.length
     } else {
-      newText = value.substring(0, start) + prefix + placeholder + suffix + value.substring(end)
+      newText = current.substring(0, start) + prefix + placeholder + suffix + current.substring(end)
       newCursorPos = start + prefix.length + placeholder.length
     }
 
-    updateValue(newText, true)
+    updateValue(displayToCanonicalMarkdown(newText), true)
     textarea.focus()
 
     // We need to wait for the value to update before setting selection
@@ -210,20 +266,6 @@ export function MarkdownEditor({
   // Or simpler: Save on every change but CAP the history size? No, too many state updates.
   // Let's save on ' ' (space) and Enter for now as a heuristic for "finished a word/line".
 
-  const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
-    const newValue = (e.target as HTMLTextAreaElement).value
-    onChange(newValue)
-
-    // Heuristic: Save history on space, enter, or if length diff is large (paste)
-    const diff = Math.abs(newValue.length - history[historyIndex].length)
-    if (diff > 5 || newValue.endsWith(' ') || newValue.endsWith('\n')) {
-      // We don't want to save EVERY space, but maybe good enough for now?
-      // Actually, let's just use a debounced saver?
-    }
-
-    // Better: Just use a timeout to save history 1s after last type
-  }
-
   // We need a ref to access the latest params in the timeout
   const latestValueRef = useRef(value)
   useEffect(() => { latestValueRef.current = value }, [value])
@@ -235,8 +277,9 @@ export function MarkdownEditor({
   const debounceTimer = useRef<NodeJS.Timeout>(null)
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value
-    onChange(newValue)
+    const newDisplay = e.target.value
+    const canonical = displayToCanonicalMarkdown(newDisplay)
+    onChange(canonical)
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
 
@@ -244,11 +287,12 @@ export function MarkdownEditor({
       // Save to history after 1s of inactivity
       const currentIndex = latestHistoryIndexRef.current
       const currentHistory = latestHistoryRef.current
+      const headCanonical = currentHistory[currentIndex] ?? ""
       // Only add if different from current head
-      if (newValue !== currentHistory[currentIndex]) {
+      if (canonical !== headCanonical) {
         setHistory(prev => {
           const newH = prev.slice(0, currentIndex + 1)
-          newH.push(newValue)
+          newH.push(canonical)
           return newH
         })
         setHistoryIndex(prev => prev + 1)
@@ -275,7 +319,12 @@ export function MarkdownEditor({
           return
         }
 
-        resolve(`![${getImageAltText(file, index)}](${reader.result})`)
+        const id = nanoid(10)
+        registerMarckoInlineImage(id, reader.result)
+
+        resolve(
+          `![${getImageAltText(file, index)}](marcko-inline:${id})`,
+        )
       }
 
       reader.onerror = () => reject(reader.error ?? new Error("Failed to read image file"))
@@ -285,16 +334,17 @@ export function MarkdownEditor({
 
   const insertMarkdownAtCursor = (markdownSnippet: string) => {
     const textarea = textareaRef.current
-    const start = textarea?.selectionStart ?? value.length
-    const end = textarea?.selectionEnd ?? value.length
-    const before = value.substring(0, start)
-    const after = value.substring(end)
+    const current = textarea?.value ?? displayMarkdown
+    const start = textarea?.selectionStart ?? current.length
+    const end = textarea?.selectionEnd ?? current.length
+    const before = current.substring(0, start)
+    const after = current.substring(end)
     const prefix = before && !before.endsWith("\n") ? "\n\n" : ""
     const suffix = after && !after.startsWith("\n") ? "\n\n" : ""
     const nextValue = before + prefix + markdownSnippet + suffix + after
     const nextCursorPosition = start + prefix.length + markdownSnippet.length
 
-    updateValue(nextValue, true)
+    updateValue(displayToCanonicalMarkdown(nextValue), true)
 
     setTimeout(() => {
       if (!textareaRef.current) return
@@ -533,7 +583,7 @@ export function MarkdownEditor({
         ) : null}
         <textarea
           ref={textareaRef}
-          value={value}
+          value={displayMarkdown}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}

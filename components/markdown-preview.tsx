@@ -16,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { markdownComponentsWithMermaid } from "@/components/markdown-components"
+import { markdownComponentsWithMermaid, markdownUrlTransform } from "@/components/markdown-components"
 import { normalizeMarkdownImageHtml } from "@/lib/markdown"
 
 interface MarkdownPreviewProps {
@@ -164,6 +164,7 @@ export function MarkdownPreview({
             remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
             rehypePlugins={[rehypeKatex, rehypeHighlight, rehypeRaw]}
             components={markdownComponentsWithMermaid}
+            urlTransform={markdownUrlTransform}
           >
             {normalizedContent}
           </ReactMarkdown>

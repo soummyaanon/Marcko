@@ -38,7 +38,7 @@ import {
 import { OpenAI } from "@/components/logo/openai"
 import { ClaudeAI } from "@/components/logo/claude"
 import { PerplexityAI } from "@/components/logo/perplexity"
-import { markdownComponentsWithMermaid } from "@/components/markdown-components"
+import { markdownComponentsWithMermaid, markdownUrlTransform } from "@/components/markdown-components"
 import { normalizeMarkdownImageHtml } from "@/lib/markdown"
 
 type SharedBy = { type: "guest" } | { type: "user"; name: string }
@@ -410,6 +410,7 @@ export function SharedDocumentView({
               remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
               rehypePlugins={[rehypeKatex, rehypeHighlight, rehypeRaw]}
               components={markdownComponentsWithMermaid}
+              urlTransform={markdownUrlTransform}
             >
               {normalizedContent}
             </ReactMarkdown>
