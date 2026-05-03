@@ -24,6 +24,8 @@ import {
   Bot,
   Menu,
   Lock,
+  GitBranch,
+  Loader2,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -65,11 +67,81 @@ export function SharedDocumentView({
   const [copiedContent, setCopiedContent] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [displayedContent, setDisplayedContent] = useState(content)
+  const [versions, setVersions] = useState<{ version: number; createdAt: string }[]>([])
+  const [activeVersion, setActiveVersion] = useState<number | null>(null)
+  const [latestVersion, setLatestVersion] = useState<number | null>(null)
+  const [isSwitchingVersion, setIsSwitchingVersion] = useState<number | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setDisplayedContent(content)
+  }, [content])
+
+  useEffect(() => {
+    if (!documentId) {
+      setVersions([])
+      setActiveVersion(null)
+      setLatestVersion(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/share/versions?id=${encodeURIComponent(documentId)}`,
+          { cache: "no-store" },
+        )
+        if (!response.ok || cancelled) return
+        const data = (await response.json()) as {
+          versions?: { version: number; createdAt: string }[]
+          latest?: number | null
+        }
+        if (cancelled) return
+        const list = Array.isArray(data.versions) ? data.versions : []
+        setVersions(list)
+        const latest =
+          typeof data.latest === "number"
+            ? data.latest
+            : list.length > 0
+              ? list[list.length - 1].version
+              : null
+        setLatestVersion(latest)
+        setActiveVersion(latest)
+      } catch (error) {
+        if (!cancelled) console.error("Failed to load versions:", error)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [documentId])
+
+  const handleSelectVersion = async (version: number) => {
+    if (!documentId || version === activeVersion) return
+    setIsSwitchingVersion(version)
+    try {
+      const response = await fetch(
+        `/api/share/versions?id=${encodeURIComponent(documentId)}&version=${encodeURIComponent(String(version))}`,
+        { cache: "no-store" },
+      )
+      if (!response.ok) throw new Error("Failed to load version")
+      const data = (await response.json()) as { content?: string }
+      if (typeof data.content === "string") {
+        setDisplayedContent(data.content)
+        setActiveVersion(version)
+      }
+    } catch (error) {
+      console.error("Failed to load version:", error)
+    } finally {
+      setIsSwitchingVersion(null)
+    }
+  }
+
   const normalizedContent = useMemo(
     () =>
-      expandMarckoInlineImagesInMarkdown(normalizeMarkdownImageHtml(content)),
-    [content],
+      expandMarckoInlineImagesInMarkdown(normalizeMarkdownImageHtml(displayedContent)),
+    [displayedContent],
   )
   const hasShareLink = Boolean(documentId)
 
@@ -101,7 +173,7 @@ export function SharedDocumentView({
 
   const copyContent = async () => {
     try {
-      await navigator.clipboard.writeText(content)
+      await navigator.clipboard.writeText(displayedContent)
       setCopiedContent(true)
       setTimeout(() => setCopiedContent(false), 2000)
     } catch (err) {
@@ -283,6 +355,48 @@ export function SharedDocumentView({
                 </>
               )}
             </Button>
+
+            {versions.length > 1 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5">
+                    <GitBranch className="h-4 w-4" />
+                    <span className="hidden sm:inline">
+                      {activeVersion === null ? "Versions" : `v${activeVersion}`}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="text-xs">
+                    Document versions
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {[...versions].reverse().map((entry) => {
+                    const isLatest = entry.version === latestVersion
+                    const isActive = entry.version === activeVersion
+                    return (
+                      <DropdownMenuItem
+                        key={entry.version}
+                        onClick={() => void handleSelectVersion(entry.version)}
+                        disabled={isSwitchingVersion !== null}
+                        className="flex items-center justify-between gap-2"
+                      >
+                        <span className="text-sm font-medium">
+                          v{entry.version}
+                          {entry.version === 0 ? " (original)" : ""}
+                          {isLatest ? " · latest" : ""}
+                        </span>
+                        {isSwitchingVersion === entry.version ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : isActive ? (
+                          <Check className="h-3.5 w-3.5" />
+                        ) : null}
+                      </DropdownMenuItem>
+                    )
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
 
             {onBackToEditor ? (
               <Button size="sm" className="gap-1.5" onClick={onBackToEditor}>

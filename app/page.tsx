@@ -558,6 +558,23 @@ function HomeContent() {
     [router],
   )
 
+  const handleLoadVersion = useCallback(
+    async (docId: string, version: number) => {
+      const response = await fetch(
+        `/api/share/versions?id=${encodeURIComponent(docId)}&version=${encodeURIComponent(String(version))}`,
+        { cache: "no-store" },
+      )
+      if (!response.ok) {
+        throw new Error("Failed to load version")
+      }
+      const data = (await response.json()) as { content?: string }
+      if (typeof data.content === "string") {
+        setMarkdown(data.content)
+      }
+    },
+    [],
+  )
+
   const handleShareAuthRequired = useCallback(() => {
     localStorage.setItem(PENDING_SHARE_STORAGE_KEY, "1")
     localStorage.setItem(PENDING_SHARE_VISIBILITY_KEY, "public")
@@ -644,6 +661,7 @@ function HomeContent() {
         onShare={handleShare}
         onShareAuthRequired={handleShareAuthRequired}
         onUpdateShare={editingDocumentId ? requestUpdateShare : undefined}
+        onLoadVersion={editingDocumentId ? handleLoadVersion : undefined}
         onEditDocument={handleEditDocument}
         editingDocumentId={editingDocumentId}
         editorContent={editingDocumentId ? markdown : undefined}

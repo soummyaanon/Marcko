@@ -13,6 +13,7 @@ import {
   LogOut,
   Trash2,
   History,
+  GitBranch,
   ExternalLink,
   ShieldCheck,
   Globe,
@@ -46,6 +47,7 @@ interface EditorToolbarProps {
   onShareAuthRequired: () => void;
   onUpdateShare?: (docId: string, content: string) => Promise<string>;
   onEditDocument?: (docId: string) => void;
+  onLoadVersion?: (docId: string, version: number) => Promise<void>;
   editingDocumentId?: string | null;
   editorContent?: string;
   theme: "light" | "dark" | "system";
@@ -95,6 +97,7 @@ export function EditorToolbar({
   onShareAuthRequired,
   onUpdateShare,
   onEditDocument,
+  onLoadVersion,
   editingDocumentId,
   editorContent = "",
   theme,
@@ -131,6 +134,70 @@ export function EditorToolbar({
   const [togglingVisibilityId, setTogglingVisibilityId] = useState<
     string | null
   >(null);
+  const [versions, setVersions] = useState<
+    { version: number; createdAt: string }[]
+  >([]);
+  const [activeVersion, setActiveVersion] = useState<number | null>(null);
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+  const [isSwitchingVersion, setIsSwitchingVersion] = useState<number | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!editingDocumentId) {
+      setVersions([]);
+      setActiveVersion(null);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      setIsLoadingVersions(true);
+      try {
+        const response = await fetch(
+          `/api/share/versions?id=${encodeURIComponent(editingDocumentId)}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok || cancelled) return;
+        const data = (await response.json()) as {
+          versions?: { version: number; createdAt: string }[];
+          latest?: number | null;
+        };
+        if (cancelled) return;
+        const list = Array.isArray(data.versions) ? data.versions : [];
+        setVersions(list);
+        setActiveVersion(
+          typeof data.latest === "number"
+            ? data.latest
+            : list.length > 0
+              ? list[list.length - 1].version
+              : null,
+        );
+      } catch (error) {
+        if (!cancelled) console.error("Failed to load versions:", error);
+      } finally {
+        if (!cancelled) setIsLoadingVersions(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [editingDocumentId]);
+
+  const handleSelectVersion = async (version: number) => {
+    if (!editingDocumentId || !onLoadVersion) return;
+    if (version === activeVersion) return;
+    setIsSwitchingVersion(version);
+    try {
+      await onLoadVersion(editingDocumentId, version);
+      setActiveVersion(version);
+    } catch (error) {
+      console.error("Failed to load version:", error);
+      toast.error("Unable to load that version.");
+    } finally {
+      setIsSwitchingVersion(null);
+    }
+  };
 
   const handleShare = async () => {
     setIsSharing(true);
@@ -164,12 +231,38 @@ export function EditorToolbar({
     }
   };
 
+  const refreshVersions = async (docId: string) => {
+    try {
+      const response = await fetch(
+        `/api/share/versions?id=${encodeURIComponent(docId)}`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) return;
+      const data = (await response.json()) as {
+        versions?: { version: number; createdAt: string }[];
+        latest?: number | null;
+      };
+      const list = Array.isArray(data.versions) ? data.versions : [];
+      setVersions(list);
+      setActiveVersion(
+        typeof data.latest === "number"
+          ? data.latest
+          : list.length > 0
+            ? list[list.length - 1].version
+            : null,
+      );
+    } catch (error) {
+      console.error("Failed to refresh versions:", error);
+    }
+  };
+
   const handleUpdate = async () => {
     if (!editingDocumentId || !onUpdateShare) return;
     setIsSharing(true);
     try {
       const url = await onUpdateShare(editingDocumentId, editorContent);
       setShareUrl(url);
+      void refreshVersions(editingDocumentId);
 
       const copiedOk = await copyTextToClipboard(url);
       if (copiedOk) {
@@ -465,6 +558,62 @@ export function EditorToolbar({
             <History className="h-4 w-4" />
             <span className="hidden sm:inline">History</span>
           </Button>
+
+          {editingDocumentId && versions.length > 0 ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  disabled={isLoadingVersions}
+                >
+                  <GitBranch className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    {isLoadingVersions
+                      ? "Loading..."
+                      : activeVersion === null
+                        ? "Versions"
+                        : `v${activeVersion}`}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="text-xs">
+                  Document versions
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {[...versions].reverse().map((entry) => {
+                  const isLatest = entry.version === versions[versions.length - 1].version;
+                  const isActive = entry.version === activeVersion;
+                  return (
+                    <DropdownMenuItem
+                      key={entry.version}
+                      onClick={() => void handleSelectVersion(entry.version)}
+                      disabled={isSwitchingVersion !== null}
+                      className="flex items-center justify-between gap-2"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">
+                          v{entry.version}
+                          {entry.version === 0 ? " (original)" : ""}
+                          {isLatest ? " · latest" : ""}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {formatHistoryDate(entry.createdAt)}
+                        </span>
+                      </div>
+                      {isSwitchingVersion === entry.version ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : isActive ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : null}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
 
           <Button
             onClick={

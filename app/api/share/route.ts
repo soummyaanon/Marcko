@@ -100,6 +100,44 @@ const ensureShareSchema = async () => {
       `)
 
       await authDbPool.query(`
+        CREATE TABLE IF NOT EXISTS document_versions (
+          document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+          version INTEGER NOT NULL,
+          content TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (document_id, version)
+        );
+      `)
+
+      await authDbPool.query(`
+        CREATE INDEX IF NOT EXISTS idx_document_versions_doc_created
+          ON document_versions(document_id, created_at DESC);
+      `)
+
+      await authDbPool.query(`
+        ALTER TABLE document_versions ENABLE ROW LEVEL SECURITY;
+      `)
+
+      await authDbPool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1
+            FROM pg_policies
+            WHERE schemaname = 'public'
+              AND tablename = 'document_versions'
+              AND policyname = 'Allow public read access'
+          ) THEN
+            CREATE POLICY "Allow public read access"
+            ON document_versions
+            FOR SELECT
+            USING (true);
+          END IF;
+        END
+        $$;
+      `)
+
+      await authDbPool.query(`
         DO $$
         BEGIN
           IF NOT EXISTS (
@@ -256,13 +294,32 @@ export async function POST(request: NextRequest) {
     return internalErrorResponse("Failed to encrypt shared document", error)
   }
   const insertDocument = async (id: string) => {
-    return authDbPool.query(
-      `
-      INSERT INTO documents (id, content, user_id, visibility)
-      VALUES ($1, $2, $3, $4)
-      `,
-      [id, encryptedContent, userId, visibility],
-    )
+    const client = await authDbPool.connect()
+    try {
+      await client.query("BEGIN")
+      await client.query(
+        `
+        INSERT INTO documents (id, content, user_id, visibility)
+        VALUES ($1, $2, $3, $4)
+        `,
+        [id, encryptedContent, userId, visibility],
+      )
+      await client.query(
+        `
+        INSERT INTO document_versions (document_id, version, content)
+        VALUES ($1, 0, $2)
+        ON CONFLICT (document_id, version) DO NOTHING
+        `,
+        [id, encryptedContent],
+      )
+      await client.query("COMMIT")
+      return
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {})
+      throw error
+    } finally {
+      client.release()
+    }
   }
 
   let documentInsertError: unknown = null
@@ -352,26 +409,23 @@ export async function PATCH(request: NextRequest) {
       return internalErrorResponse("Failed to encrypt content", error)
     }
     try {
-      const result = await authDbPool.query(
-        `
-        UPDATE documents
-        SET content = $1, updated_at = NOW()
-        WHERE id = $2 AND user_id = $3
-        RETURNING id, visibility
-        `,
-        [encryptedContent, documentId, userId],
-      )
-      if (result.rowCount === 0) {
+      const result = await updateDocumentContentWithVersion({
+        documentId,
+        userId,
+        newPlainContent: content!,
+        newEncryptedContent: encryptedContent,
+      })
+      if (!result) {
         return NextResponse.json(
           { message: "Document not found or access denied." },
           { status: 404 },
         )
       }
-      const row = result.rows[0]
       return NextResponse.json({
         ok: true,
         id: documentId,
-        visibility: (row.visibility === "private" ? "private" : "public") as "public" | "private",
+        visibility: result.visibility,
+        version: result.version,
         shareUrl: buildShareUrl(request, documentId),
       })
     } catch (error) {
@@ -413,16 +467,14 @@ export async function PATCH(request: NextRequest) {
     return internalErrorResponse("Failed to encrypt content", error)
   }
   try {
-    const result = await authDbPool.query(
-      `
-      UPDATE documents
-      SET content = $1, visibility = $2, updated_at = NOW()
-      WHERE id = $3 AND user_id = $4
-      RETURNING id, visibility
-      `,
-      [encryptedContent, visibility, documentId, userId],
-    )
-    if (result.rowCount === 0) {
+    const result = await updateDocumentContentWithVersion({
+      documentId,
+      userId,
+      newPlainContent: content!,
+      newEncryptedContent: encryptedContent,
+      newVisibility: visibility,
+    })
+    if (!result) {
       return NextResponse.json(
         { message: "Document not found or access denied." },
         { status: 404 },
@@ -431,11 +483,102 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       id: documentId,
-      visibility,
+      visibility: result.visibility,
+      version: result.version,
       shareUrl: buildShareUrl(request, documentId),
     })
   } catch (error) {
     return internalErrorResponse("Failed to update document", error)
+  }
+}
+
+/**
+ * Updates document content and appends a new version row only if the content
+ * actually changed. Backfills v0 from the previous content if missing.
+ * Returns null if the document doesn't exist or doesn't belong to the user.
+ */
+async function updateDocumentContentWithVersion(args: {
+  documentId: string
+  userId: string
+  newPlainContent: string
+  newEncryptedContent: string
+  newVisibility?: "public" | "private"
+}): Promise<{ visibility: "public" | "private"; version: number } | null> {
+  const { documentId, userId, newPlainContent, newEncryptedContent, newVisibility } = args
+  const client = await authDbPool.connect()
+  try {
+    await client.query("BEGIN")
+    const currentResult = await client.query(
+      `
+      SELECT content, visibility
+      FROM documents
+      WHERE id = $1 AND user_id = $2
+      FOR UPDATE
+      `,
+      [documentId, userId],
+    )
+    if (currentResult.rowCount === 0) {
+      await client.query("ROLLBACK")
+      return null
+    }
+    const currentEncrypted = String(currentResult.rows[0].content ?? "")
+    let currentPlain = ""
+    try {
+      currentPlain = decryptStoredContent(currentEncrypted)
+    } catch {
+      currentPlain = currentEncrypted
+    }
+
+    const maxVersionResult = await client.query(
+      `SELECT COALESCE(MAX(version), -1) AS max_version
+         FROM document_versions
+         WHERE document_id = $1`,
+      [documentId],
+    )
+    let maxVersion = Number(maxVersionResult.rows[0]?.max_version ?? -1)
+
+    if (maxVersion < 0) {
+      await client.query(
+        `INSERT INTO document_versions (document_id, version, content)
+         VALUES ($1, 0, $2)
+         ON CONFLICT (document_id, version) DO NOTHING`,
+        [documentId, currentEncrypted],
+      )
+      maxVersion = 0
+    }
+
+    const contentChanged = currentPlain !== newPlainContent
+    let appendedVersion = maxVersion
+    if (contentChanged) {
+      appendedVersion = maxVersion + 1
+      await client.query(
+        `INSERT INTO document_versions (document_id, version, content)
+         VALUES ($1, $2, $3)`,
+        [documentId, appendedVersion, newEncryptedContent],
+      )
+    }
+
+    const updated = await client.query(
+      newVisibility === undefined
+        ? `UPDATE documents SET content = $1, updated_at = NOW()
+             WHERE id = $2 AND user_id = $3
+             RETURNING visibility`
+        : `UPDATE documents SET content = $1, visibility = $2, updated_at = NOW()
+             WHERE id = $3 AND user_id = $4
+             RETURNING visibility`,
+      newVisibility === undefined
+        ? [newEncryptedContent, documentId, userId]
+        : [newEncryptedContent, newVisibility, documentId, userId],
+    )
+
+    await client.query("COMMIT")
+    const visibility = (updated.rows[0]?.visibility === "private" ? "private" : "public") as "public" | "private"
+    return { visibility, version: appendedVersion }
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {})
+    throw error
+  } finally {
+    client.release()
   }
 }
 
