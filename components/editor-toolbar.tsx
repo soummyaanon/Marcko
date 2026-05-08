@@ -724,9 +724,9 @@ export function EditorToolbar({
                 >
                   <Key />
                   <div className="flex flex-col">
-                    <span>Connect Claude Desktop</span>
+                    <span>Connect AI agents</span>
                     <span className="text-[10px] text-muted-foreground">
-                      MCP · API keys
+                      MCP · Claude · Cursor · ChatGPT
                     </span>
                   </div>
                 </DropdownMenuItem>
