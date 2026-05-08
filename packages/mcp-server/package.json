@@ -1,0 +1,47 @@
+{
+  "name": "marcko-mcp",
+  "version": "0.1.0",
+  "description": "Marcko MCP server — publish drafts straight from Claude Desktop into your Marcko library.",
+  "license": "MIT",
+  "author": "Marcko",
+  "homepage": "https://marcko.bixai.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/soummyaanon/Marcko.git",
+    "directory": "packages/mcp-server"
+  },
+  "type": "module",
+  "bin": {
+    "marcko-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18.18"
+  },
+  "keywords": [
+    "marcko",
+    "mcp",
+    "model-context-protocol",
+    "claude-desktop",
+    "markdown",
+    "publishing"
+  ]
+}

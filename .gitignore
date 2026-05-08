@@ -6,6 +6,10 @@
 
 # dependencies
 /node_modules
+**/node_modules
+
+# package build output
+packages/*/dist
 
 # next.js
 /.next/
