@@ -208,12 +208,12 @@ export function ApiKeysDialog({ open, onOpenChange }: ApiKeysDialogProps) {
           <div className="flex items-center gap-2">
             <Key className="h-4 w-4 text-primary" />
             <DialogTitle className="font-display text-[22px] italic leading-none">
-              Connect Claude Desktop
+              Connect AI agents
             </DialogTitle>
           </div>
           <DialogDescription className="text-[12px] leading-relaxed">
-            Generate a Marcko API key, paste it into Claude Desktop, and publish drafts straight from chat —
-            no copy-paste required.
+            Generate a Marcko API key, plug it into any MCP-compatible AI client — Claude, Cursor, Windsurf, ChatGPT,
+            and more — and publish drafts straight from chat.
           </DialogDescription>
         </DialogHeader>
 
@@ -276,7 +276,7 @@ export function ApiKeysDialog({ open, onOpenChange }: ApiKeysDialogProps) {
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Claude Desktop (JSON)
+                Universal (MCP config)
               </button>
             </div>
           </div>
@@ -323,9 +323,26 @@ export function ApiKeysDialog({ open, onOpenChange }: ApiKeysDialogProps) {
                 <code>{claudeSnippet}</code>
               </pre>
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Paste into <code className="font-mono">~/Library/Application Support/Claude/claude_desktop_config.json</code> on macOS
-                (or the Windows equivalent), then restart Claude Desktop.
+                Works with any MCP-compatible host. Paste the snippet into your client&apos;s MCP config and restart it:
               </p>
+              <ul className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                <li>
+                  <span className="font-medium text-foreground">Claude Desktop:</span>{" "}
+                  <code className="font-mono">~/Library/Application Support/Claude/claude_desktop_config.json</code>
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Cursor:</span>{" "}
+                  <code className="font-mono">~/.cursor/mcp.json</code>
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Windsurf:</span>{" "}
+                  <code className="font-mono">~/.codeium/windsurf/mcp_config.json</code>
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Cline / Continue / Zed / others:</span>{" "}
+                  same shape, see your client&apos;s MCP settings
+                </li>
+              </ul>
             </>
           )}
         </div>

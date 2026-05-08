@@ -1,10 +1,10 @@
 # marcko-mcp
 
-Publish drafts straight from **Claude Desktop** into your **Marcko** library — no copy-paste.
+Publish drafts straight from any MCP-compatible AI client — **Claude, Cursor, Windsurf, ChatGPT, and more** — into your **Marcko** library. No copy-paste.
 
 ## Install
 
-Generate `MARCKO_API_KEY` from your Marcko account → **Connect Claude Desktop**.
+First, generate `MARCKO_API_KEY` from your Marcko account → **Connect AI agents**.
 
 ### Claude Code (CLI) — one-liner
 
@@ -14,9 +14,9 @@ claude mcp add marcko --scope user --env MARCKO_API_KEY=mk_PASTE_YOUR_KEY -- npx
 
 Marcko will be available the next time you open a Claude Code session.
 
-### Claude Desktop (JSON config)
+### Universal MCP config (Claude Desktop, Cursor, Windsurf, Cline, Continue, Zed, ChatGPT, …)
 
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or the Windows equivalent:
+Drop the same JSON block into your client's MCP config file and restart it:
 
 ```json
 {
@@ -32,7 +32,14 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
 }
 ```
 
-Restart Claude Desktop.
+| Client | Config file |
+|---|---|
+| Claude Desktop (macOS) | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Claude Desktop (Windows) | `%AppData%\Claude\claude_desktop_config.json` |
+| Cursor | `~/.cursor/mcp.json` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+| Cline / Continue / Zed | See each client's MCP settings UI |
+| ChatGPT (GPT‑5 / Codex / Operator) | Add via the connector UI with the same `command` / `args` / `env` fields |
 
 ## Tool
 
