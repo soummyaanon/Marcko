@@ -8,6 +8,7 @@ import {
   Loader2,
   Plus,
   ShieldCheck,
+  Terminal,
   Trash2,
   TriangleAlert,
 } from "lucide-react"
@@ -53,22 +54,32 @@ export function ApiKeysDialog({ open, onOpenChange }: ApiKeysDialogProps) {
   const [revealedKey, setRevealedKey] = useState<{ key: string; label: string } | null>(null)
   const [copiedKey, setCopiedKey] = useState(false)
   const [copiedSnippet, setCopiedSnippet] = useState(false)
+  const [copiedCli, setCopiedCli] = useState(false)
+  const [installMode, setInstallMode] = useState<"cli" | "json">("cli")
   const [revokingId, setRevokingId] = useState<string | null>(null)
 
-  const claudeSnippet = useMemo(() => {
-    const key = revealedKey?.key ?? "mk_PASTE_YOUR_KEY"
-    return `{
+  const keyForSnippet = revealedKey?.key ?? "mk_PASTE_YOUR_KEY"
+
+  const claudeCliCommand = useMemo(
+    () =>
+      `claude mcp add marcko --scope user --env MARCKO_API_KEY=${keyForSnippet} -- npx -y marcko-mcp@latest`,
+    [keyForSnippet],
+  )
+
+  const claudeSnippet = useMemo(
+    () => `{
   "mcpServers": {
     "marcko": {
       "command": "npx",
       "args": ["-y", "marcko-mcp@latest"],
       "env": {
-        "MARCKO_API_KEY": "${key}"
+        "MARCKO_API_KEY": "${keyForSnippet}"
       }
     }
   }
-}`
-  }, [revealedKey])
+}`,
+    [keyForSnippet],
+  )
 
   const loadKeys = async () => {
     setLoading(true)
@@ -93,6 +104,8 @@ export function ApiKeysDialog({ open, onOpenChange }: ApiKeysDialogProps) {
     setRevealedKey(null)
     setCopiedKey(false)
     setCopiedSnippet(false)
+    setCopiedCli(false)
+    setInstallMode("cli")
     void loadKeys()
   }, [open])
 
@@ -177,6 +190,17 @@ export function ApiKeysDialog({ open, onOpenChange }: ApiKeysDialogProps) {
     }
   }
 
+  const copyCli = async () => {
+    const ok = await copyTextToClipboard(claudeCliCommand)
+    if (ok) {
+      setCopiedCli(true)
+      toast.success("Command copied")
+      setTimeout(() => setCopiedCli(false), 1800)
+    } else {
+      toast.error("Unable to copy command")
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[min(680px,calc(100dvh-2rem))] w-full max-w-[calc(100vw-2rem)] flex-col gap-4 overflow-hidden p-5 sm:max-w-2xl">
@@ -227,27 +251,83 @@ export function ApiKeysDialog({ open, onOpenChange }: ApiKeysDialogProps) {
           </div>
         ) : null}
 
-        {/* Snippet */}
+        {/* Install instructions */}
         <div className="rounded-lg border border-border bg-card/50 p-3">
-          <div className="flex items-center justify-between">
-            <span className="eyebrow">Claude Desktop config</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 text-[11px]"
-              onClick={copySnippet}
-            >
-              {copiedSnippet ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copiedSnippet ? "Copied" : "Copy snippet"}
-            </Button>
+          <div className="flex items-center justify-between gap-2">
+            <span className="eyebrow">Install</span>
+            <div className="inline-flex rounded-full border border-border bg-background/60 p-0.5 text-[10px] font-medium">
+              <button
+                type="button"
+                onClick={() => setInstallMode("cli")}
+                className={`rounded-full px-2.5 py-1 transition ${
+                  installMode === "cli"
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Claude Code (CLI)
+              </button>
+              <button
+                type="button"
+                onClick={() => setInstallMode("json")}
+                className={`rounded-full px-2.5 py-1 transition ${
+                  installMode === "json"
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Claude Desktop (JSON)
+              </button>
+            </div>
           </div>
-          <pre className="mt-2 max-h-44 overflow-auto rounded-md bg-background/70 p-2 font-mono text-[11px] leading-relaxed text-foreground">
-            <code>{claudeSnippet}</code>
-          </pre>
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            Paste into <code className="font-mono">~/Library/Application Support/Claude/claude_desktop_config.json</code> on macOS
-            (or the Windows equivalent), then restart Claude Desktop.
-          </p>
+
+          {installMode === "cli" ? (
+            <>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                  <Terminal className="h-3 w-3" />
+                  one-liner
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 text-[11px]"
+                  onClick={copyCli}
+                >
+                  {copiedCli ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedCli ? "Copied" : "Copy command"}
+                </Button>
+              </div>
+              <pre className="mt-1.5 max-h-32 overflow-auto rounded-md bg-background/70 p-2 font-mono text-[11px] leading-relaxed text-foreground">
+                <code>{claudeCliCommand}</code>
+              </pre>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Run in any terminal where the <code className="font-mono">claude</code> CLI is installed.
+                Marcko will be available next time you open a Claude Code session.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="mt-2 flex items-center justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 text-[11px]"
+                  onClick={copySnippet}
+                >
+                  {copiedSnippet ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedSnippet ? "Copied" : "Copy snippet"}
+                </Button>
+              </div>
+              <pre className="mt-1.5 max-h-44 overflow-auto rounded-md bg-background/70 p-2 font-mono text-[11px] leading-relaxed text-foreground">
+                <code>{claudeSnippet}</code>
+              </pre>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Paste into <code className="font-mono">~/Library/Application Support/Claude/claude_desktop_config.json</code> on macOS
+                (or the Windows equivalent), then restart Claude Desktop.
+              </p>
+            </>
+          )}
         </div>
 
         {/* Create */}

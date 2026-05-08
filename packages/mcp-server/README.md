@@ -4,7 +4,19 @@ Publish drafts straight from **Claude Desktop** into your **Marcko** library —
 
 ## Install
 
-In Claude Desktop's MCP config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Generate `MARCKO_API_KEY` from your Marcko account → **Connect Claude Desktop**.
+
+### Claude Code (CLI) — one-liner
+
+```bash
+claude mcp add marcko --scope user --env MARCKO_API_KEY=mk_PASTE_YOUR_KEY -- npx -y marcko-mcp@latest
+```
+
+Marcko will be available the next time you open a Claude Code session.
+
+### Claude Desktop (JSON config)
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or the Windows equivalent:
 
 ```json
 {
@@ -20,7 +32,7 @@ In Claude Desktop's MCP config (`~/Library/Application Support/Claude/claude_des
 }
 ```
 
-Generate `MARCKO_API_KEY` from your Marcko account → **Connect Claude Desktop**. Restart Claude Desktop.
+Restart Claude Desktop.
 
 ## Tool
 
