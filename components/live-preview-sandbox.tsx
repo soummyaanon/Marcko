@@ -19,25 +19,50 @@ const buildSrcDoc = (source: string, language: LivePreviewSandboxProps["language
   const reportHeightScript = `
 <script>
 (function(){
+  var lastSent = -1;
+  function measure(){
+    var b = document.body;
+    var d = document.documentElement;
+    return Math.max(
+      b ? b.scrollHeight : 0,
+      b ? b.offsetHeight : 0,
+      d ? d.scrollHeight : 0,
+      d ? d.offsetHeight : 0
+    );
+  }
   function send(){
     try {
-      var h = Math.max(
-        document.documentElement.scrollHeight,
-        document.body ? document.body.scrollHeight : 0
-      );
+      var h = measure();
+      if (h === lastSent) return;
+      lastSent = h;
       parent.postMessage({ type: ${JSON.stringify(HEIGHT_MESSAGE_TYPE)}, height: h }, "*");
     } catch (e) {}
+  }
+  // Fire as early as possible
+  send();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", send);
   }
   window.addEventListener("load", send);
   window.addEventListener("resize", send);
   if (typeof ResizeObserver !== "undefined") {
-    try { new ResizeObserver(send).observe(document.documentElement); } catch (e) {}
+    try {
+      var ro = new ResizeObserver(send);
+      if (document.documentElement) ro.observe(document.documentElement);
+      if (document.body) ro.observe(document.body);
+    } catch (e) {}
   }
-  var mo = new MutationObserver(send);
-  mo.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });
-  setTimeout(send, 50);
-  setTimeout(send, 250);
-  setTimeout(send, 800);
+  if (document.body) {
+    var mo = new MutationObserver(send);
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true });
+  }
+  // Catch async layout shifts (fonts, images, late JS)
+  if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === "function") {
+    document.fonts.ready.then(send).catch(function(){});
+  }
+  requestAnimationFrame(send);
+  setTimeout(send, 0);
+  setTimeout(send, 120);
 })();
 <\/script>`
 
@@ -98,7 +123,12 @@ ${reportHeightScript}
 export function LivePreviewSandbox({ source, language }: LivePreviewSandboxProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [view, setView] = useState<"preview" | "code">("preview")
-  const [height, setHeight] = useState<number>(80)
+  const initialHeight = useMemo(() => {
+    const lines = source.split("\n").length
+    // Rough guess so the frame doesn't pop in from tiny.
+    return Math.min(Math.max(220, lines * 16 + 80), 600)
+  }, [source])
+  const [height, setHeight] = useState<number>(initialHeight)
   const [copied, setCopied] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
 
@@ -112,7 +142,7 @@ export function LivePreviewSandbox({ source, language }: LivePreviewSandboxProps
       const next = typeof data.height === "number" ? data.height : 0
       if (!Number.isFinite(next) || next <= 0) return
       const clamped = Math.min(Math.max(next + 8, 80), 1600)
-      setHeight((prev) => (Math.abs(prev - clamped) > 4 ? clamped : prev))
+      setHeight((prev) => (prev === clamped ? prev : clamped))
     }
     window.addEventListener("message", handleMessage)
     return () => window.removeEventListener("message", handleMessage)
@@ -197,6 +227,8 @@ export function LivePreviewSandbox({ source, language }: LivePreviewSandboxProps
           title="Live preview"
           sandbox="allow-scripts allow-forms allow-popups allow-modals"
           srcDoc={srcDoc}
+          loading="eager"
+          referrerPolicy="no-referrer"
           className="block w-full border-0 bg-white dark:bg-neutral-950"
           style={{ height }}
         />
