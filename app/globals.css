@@ -37,9 +37,10 @@
   --sidebar-accent-foreground: oklch(0.2101 0.0318 264.6645);
   --sidebar-border: oklch(0.9276 0.0058 264.5313);
   --sidebar-ring: oklch(0.6716 0.1368 48.5130);
-  --font-sans: Reddit Mono, ui-monospace, monospace;
-  --font-serif: serif;
-  --font-mono: Google Sans Code, ui-monospace, monospace;
+  --font-sans: var(--font-ui), Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-display), "Instrument Serif", "Iowan Old Style", "Apple Garamond", serif;
+  --font-mono: var(--font-mono-editor), "JetBrains Mono", ui-monospace, monospace;
+  --font-display: var(--font-display), "Instrument Serif", serif;
   --shadow-color: #000000;
   --shadow-opacity: 0.05;
   --shadow-blur: 4px;
@@ -94,9 +95,10 @@
   --sidebar-border: oklch(0.2520 0 0);
   --sidebar-ring: oklch(0.7214 0.1337 49.9802);
   --radius: 0.75rem;
-  --font-sans: Reddit Mono, ui-monospace, monospace;
-  --font-serif: serif;
-  --font-mono: Google Sans Code, ui-monospace, monospace;
+  --font-sans: var(--font-ui), Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-display), "Instrument Serif", "Iowan Old Style", "Apple Garamond", serif;
+  --font-mono: var(--font-mono-editor), "JetBrains Mono", ui-monospace, monospace;
+  --font-display: var(--font-display), "Instrument Serif", serif;
   --shadow-color: #000000;
   --shadow-opacity: 0.05;
   --shadow-blur: 4px;
@@ -117,8 +119,9 @@
 }
 
 @theme inline {
-  --font-sans: Reddit Mono, ui-monospace, monospace;
-  --font-mono: Google Sans Code, ui-monospace, monospace;
+  --font-sans: var(--font-ui), Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-editor), "JetBrains Mono", ui-monospace, monospace;
+  --font-display: var(--font-display), "Instrument Serif", serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -188,10 +191,87 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html, body {
+    height: 100%;
+  }
   body {
     @apply bg-background text-foreground;
     letter-spacing: var(--tracking-normal);
+    font-feature-settings: "ss01", "cv11";
+    background-image:
+      radial-gradient(at 12% 8%, color-mix(in oklab, var(--primary) 6%, transparent) 0px, transparent 60%),
+      radial-gradient(at 88% 92%, color-mix(in oklab, var(--ring) 5%, transparent) 0px, transparent 55%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.045 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    background-attachment: fixed;
   }
+}
+
+/* Editorial typography utilities */
+.font-display {
+  font-family: var(--font-display);
+  font-feature-settings: "liga", "dlig";
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--muted-foreground) 90%, transparent);
+}
+
+/* Floating glass surface */
+.glass-surface {
+  background: color-mix(in oklab, var(--background) 70%, transparent);
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in oklab, white 50%, transparent) inset,
+    0 8px 32px -12px color-mix(in oklab, black 35%, transparent),
+    0 2px 6px -2px color-mix(in oklab, black 25%, transparent);
+}
+.dark .glass-surface {
+  background: color-mix(in oklab, var(--card) 80%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in oklab, white 6%, transparent) inset,
+    0 8px 32px -12px color-mix(in oklab, black 80%, transparent),
+    0 2px 6px -2px color-mix(in oklab, black 60%, transparent);
+}
+
+/* Page-load entrance for the floating dock */
+@keyframes dock-rise {
+  0% { transform: translateY(14px) scale(0.98); opacity: 0; filter: blur(6px); }
+  100% { transform: translateY(0) scale(1); opacity: 1; filter: blur(0); }
+}
+.dock-enter {
+  animation: dock-rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Soft pulsing dot */
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+.dot-pulse { animation: dot-pulse 1.8s ease-in-out infinite; }
+
+/* Editor "paper" feel */
+.editor-paper {
+  background:
+    linear-gradient(to bottom, color-mix(in oklab, var(--background) 100%, transparent), color-mix(in oklab, var(--background) 96%, var(--primary) 4%));
+}
+.dark .editor-paper {
+  background:
+    linear-gradient(to bottom, color-mix(in oklab, var(--background) 100%, transparent), color-mix(in oklab, var(--background) 92%, black 8%));
+}
+
+/* Hairline editorial divider */
+.rule-dotted {
+  background-image: radial-gradient(circle, color-mix(in oklab, var(--muted-foreground) 60%, transparent) 1px, transparent 1.5px);
+  background-size: 6px 1px;
+  background-repeat: repeat-x;
+  background-position: center;
+  height: 1px;
 }
 
 /* Custom Markdown Styles */

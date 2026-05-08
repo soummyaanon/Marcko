@@ -681,8 +681,8 @@ function HomeContent() {
 
       <main className="flex flex-1 flex-col overflow-hidden">
         <ResizablePanelGroup direction={direction}>
-          <ResizablePanel defaultSize={40} minSize={20}>
-            <div className="flex h-full flex-col border-r border-border">
+          <ResizablePanel defaultSize={45} minSize={20}>
+            <div className="flex h-full flex-col border-r border-border/70">
               <MarkdownEditor
                 value={markdown}
                 onChange={setMarkdown}
@@ -693,9 +693,9 @@ function HomeContent() {
             </div>
           </ResizablePanel>
 
-          <ResizableHandle withHandle />
+          <ResizableHandle withHandle className="bg-transparent transition-colors hover:bg-primary/20 data-[resize-handle-state=hover]:bg-primary/30 data-[resize-handle-state=drag]:bg-primary/40" />
 
-          <ResizablePanel defaultSize={60} minSize={20}>
+          <ResizablePanel defaultSize={55} minSize={20}>
             <div className="flex h-full flex-col">
               <MarkdownPreview
                 content={markdown}
@@ -708,34 +708,35 @@ function HomeContent() {
         </ResizablePanelGroup>
       </main>
 
-      <footer className="border-t border-border bg-muted/30 px-4 py-2 md:px-6">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 sm:flex-row">
-          <div className="flex flex-col items-center gap-1 sm:items-start">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Created by</span>
-              <a
-                href="https://github.com/soummyaanon"
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1 font-medium text-foreground hover:underline"
-              >
-                <Github className="h-3 w-3" />
-                soummyaanon
-              </a>
-            </div>
+      <footer className="border-t border-border/70 bg-background/70 px-4 py-1.5 backdrop-blur-sm md:px-6">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+          <div className="flex items-center gap-2 font-mono text-[10px] tracking-wide text-muted-foreground">
+            <span className="eyebrow">Marcko</span>
+            <span className="hidden sm:inline text-muted-foreground/60">·</span>
+            <span className="hidden sm:inline">An open-source editorial workstation</span>
           </div>
-          <a
-            href="https://github.com/soummyaanon/Marcko"
-            target="_blank"
-            rel="noreferrer"
-            className="group flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium transition-colors hover:bg-muted"
-          >
-            <Github className="h-3.5 w-3.5" />
-            <span>Star on GitHub</span>
-            <span className="flex items-center gap-1 border-l border-border pl-2 text-muted-foreground group-hover:text-foreground">
-              <Star className="h-3 w-3" />
-            </span>
-          </a>
+          <div className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
+            <span className="hidden sm:inline">made by</span>
+            <a
+              href="https://github.com/soummyaanon"
+              target="_blank"
+              rel="noreferrer"
+              className="font-display text-[14px] italic leading-none text-foreground transition-opacity hover:opacity-80"
+            >
+              soummyaanon
+            </a>
+            <span className="hidden h-3 w-px bg-border/80 sm:inline-block" />
+            <a
+              href="https://github.com/soummyaanon/Marcko"
+              target="_blank"
+              rel="noreferrer"
+              className="group inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-card/40 px-2.5 py-1 text-[10px] font-medium tracking-wide text-foreground transition-all hover:border-primary/40 hover:bg-primary/5"
+            >
+              <Github className="h-3 w-3" />
+              <span>Star</span>
+              <Star className="h-3 w-3 transition-transform group-hover:rotate-12 group-hover:text-primary" />
+            </a>
+          </div>
         </div>
       </footer>
 

@@ -505,27 +505,58 @@ export function EditorToolbar({
 
   return (
     <>
-      <header className="flex items-center justify-between border-b border-border bg-background px-4 py-3 md:px-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <FileText className="h-4 w-4 text-primary-foreground" />
+      <header className="relative flex items-center justify-between border-b border-border/70 bg-background/80 px-4 py-3 backdrop-blur-md md:px-6">
+        <div className="pointer-events-none absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Editorial wordmark */}
+          <div className="flex items-center gap-2.5">
+            <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-b from-primary to-primary/80 shadow-[0_2px_8px_-2px_color-mix(in_oklab,var(--primary)_45%,transparent)]">
+              <FileText className="h-4 w-4 text-primary-foreground" />
+              <span className="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background dot-pulse" />
+            </div>
+            <div className="leading-tight">
+              <div className="flex items-baseline gap-1.5">
+                <h1 className="font-display text-[22px] italic leading-none text-foreground">
+                  Marcko
+                </h1>
+                <span className="hidden eyebrow sm:inline">Editorial · v2</span>
+              </div>
+              <p className="mt-0.5 hidden text-[10px] tracking-wide text-muted-foreground/90 sm:block">
+                A secure markdown workstation
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">Marcko</h1>
-            <p className="hidden text-xs text-muted-foreground sm:block">
-              Markdown Editor
-            </p>
+
+          <span className="hidden h-6 w-px bg-border/70 md:inline-block" />
+
+          {/* Document state pill */}
+          <div className="hidden md:flex items-center gap-1.5 rounded-full border border-border/80 bg-card/40 px-2.5 py-1 text-[10px] font-medium tracking-wide text-muted-foreground">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-50 dot-pulse" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            </span>
+            <span className="font-mono uppercase tracking-[0.18em] text-foreground/80">
+              {editingDocumentId ? "Editing" : "Draft"}
+            </span>
+            <span className="text-muted-foreground/60">·</span>
+            <span className="font-mono">autosaved</span>
           </div>
-          <div className="hidden items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 md:flex dark:text-emerald-300">
+
+          <div className="hidden items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700 lg:flex dark:text-emerald-300">
             <ShieldCheck className="h-3 w-3" />
-            <span>Enterprise Secure</span>
+            <span>Enterprise · E2E</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
+              >
                 {theme === "light" && <Sun className="h-4 w-4" />}
                 {theme === "dark" && <Moon className="h-4 w-4" />}
                 {theme === "system" && <Monitor className="h-4 w-4" />}
@@ -550,12 +581,12 @@ export function EditorToolbar({
 
           <Button
             onClick={handleHistoryToggle}
-            variant="outline"
-            className="gap-2"
+            variant="ghost"
+            className="h-9 gap-1.5 rounded-full px-3 text-[12px] text-muted-foreground hover:text-foreground"
             size="sm"
             disabled={isAuthLoading}
           >
-            <History className="h-4 w-4" />
+            <History className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">History</span>
           </Button>
 
@@ -624,7 +655,7 @@ export function EditorToolbar({
             disabled={
               isSharing || Boolean(editingDocumentId && !editorContent?.trim())
             }
-            className="gap-2"
+            className="h-9 gap-1.5 rounded-full bg-foreground px-4 text-[12px] font-semibold tracking-wide text-background shadow-[0_4px_18px_-6px_color-mix(in_oklab,var(--foreground)_55%,transparent)] hover:bg-foreground/90"
             size="sm"
           >
             {isSharing ? (

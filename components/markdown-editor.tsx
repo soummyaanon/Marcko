@@ -17,21 +17,11 @@ import {
   registerMarckoInlineImage,
   shortenDataImageMarkdownUrls,
 } from "@/lib/markdown-inline-images"
+import { FloatingActionDock } from "@/components/floating-action-dock"
 import {
-  Bold,
-  Italic,
-  Strikethrough,
-  Heading1,
-  List,
-  ListOrdered,
-  Quote,
-  Code,
-  Link as LinkIcon,
   Upload,
-  Workflow,
   RotateCcw,
   RefreshCw,
-  Globe
 } from "lucide-react"
 
 interface MarkdownEditorProps {
@@ -51,6 +41,7 @@ export function MarkdownEditor({
 }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
   const mermaidTemplate = "graph TD\n    A[Write Markdown] --> B[Live Preview]"
   const htmlTemplate = `<div class="card">
   <h2>Hello, Marcko!</h2>
@@ -496,33 +487,33 @@ export function MarkdownEditor({
     }
   }
 
-  const ToolbarButton = ({
-    label,
-    onClick,
-    children,
-  }: {
-    label: string
-    onClick: () => void
-    children: React.ReactNode
-  }) => (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onClick}
-          aria-label={label}
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
-    </Tooltip>
-  )
+  const handleImageUploadClick = () => {
+    imageInputRef.current?.click()
+  }
+
+  const handleImageFilePicked = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length > 0) {
+      await insertImageFiles(files)
+    }
+    e.target.value = ""
+  }
+
+  const stats = useMemo(() => {
+    const text = value
+    const words = text.trim().length === 0 ? 0 : text.trim().split(/\s+/).length
+    const chars = text.length
+    const lines = text.length === 0 ? 0 : text.split(/\r?\n/).length
+    const minutes = Math.max(1, Math.round(words / 200))
+    return { words, chars, lines, minutes }
+  }, [value])
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-14 items-center gap-1 border-b border-border bg-muted/30 px-2 overflow-x-auto">
+      {/* Slim editorial utility strip — actions only, no labels */}
+      <div className="flex h-10 items-center justify-end gap-1 border-b border-border/70 bg-muted/30 px-2 backdrop-blur-sm">
         <input
           ref={fileInputRef}
           type="file"
@@ -530,119 +521,119 @@ export function MarkdownEditor({
           className="hidden"
           onChange={handleMarkdownFileUpload}
         />
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={handleImageFilePicked}
+        />
         <TooltipProvider delayDuration={150}>
-          <ToolbarButton
-            label="Bold (Cmd+B)"
-            onClick={() => handleFormat("**", "**", "bold text")}
-          >
-            <Bold className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            label="Italic (Cmd+I)"
-            onClick={() => handleFormat("*", "*", "italic text")}
-          >
-            <Italic className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            label="Strikethrough (Cmd+Shift+S)"
-            onClick={() => handleFormat("~~", "~~", "strikethrough text")}
-          >
-            <Strikethrough className="h-4 w-4" />
-          </ToolbarButton>
-          <div className="mx-1 h-4 w-[1px] bg-border" />
-          <ToolbarButton
-            label="Heading"
-            onClick={() => handleFormat("### ", "", "Heading 3")}
-          >
-            <Heading1 className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            label="Bullet List"
-            onClick={() => handleFormat("- ", "", "list item")}
-          >
-            <List className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            label="Ordered List"
-            onClick={() => handleFormat("1. ", "", "list item")}
-          >
-            <ListOrdered className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            label="Quote"
-            onClick={() => handleFormat("> ", "", "quote")}
-          >
-            <Quote className="h-4 w-4" />
-          </ToolbarButton>
-          <div className="mx-1 h-4 w-[1px] bg-border" />
-          <ToolbarButton
-            label="Inline Code (Cmd+Shift+C)"
-            onClick={() => handleFormat("`", "`", "code")}
-          >
-            <Code className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            label="Mermaid Diagram (Cmd+Shift+M)"
-            onClick={() => handleFormat("```mermaid\n", "\n```", mermaidTemplate)}
-          >
-            <Workflow className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            label="Live HTML / CSS / JS"
-            onClick={() => handleFormat("```html\n", "\n```", htmlTemplate)}
-          >
-            <Globe className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            label="Link (Cmd+K)"
-            onClick={() => handleFormat("[", "](url)", "link text")}
-          >
-            <LinkIcon className="h-4 w-4" />
-          </ToolbarButton>
-          <div className="mx-1 h-4 w-[1px] bg-border" />
-          <ToolbarButton
-            label="Upload file (.md / .html / .css / .js)"
-            onClick={handleFileUploadClick}
-          >
-            <Upload className="h-4 w-4" />
-          </ToolbarButton>
-          <div className="mx-1 h-4 w-[1px] bg-border" />
-          <ToolbarButton
-            label="Reset (clear editor)"
-            onClick={() => updateValue("", true)}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </ToolbarButton>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleFileUploadClick}
+                className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+                aria-label="Upload file"
+              >
+                <Upload className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="font-mono text-[10px]">
+              Upload .md / .html / .css / .js
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => updateValue("", true)}
+                className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+                aria-label="Clear editor"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="font-mono text-[10px]">
+              Clear editor
+            </TooltipContent>
+          </Tooltip>
           {defaultContent != null ? (
-            <ToolbarButton
-              label="Load default content"
-              onClick={() => updateValue(defaultContent, true)}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </ToolbarButton>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => updateValue(defaultContent, true)}
+                  className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+                  aria-label="Load default content"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="font-mono text-[10px]">
+                Reload default content
+              </TooltipContent>
+            </Tooltip>
           ) : null}
         </TooltipProvider>
       </div>
-      <div ref={scrollContainerRef} onScroll={onScroll} className="relative flex-1 overflow-auto">
-        {isDraggingImage ? (
-          <div className="pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10 text-sm font-medium text-primary">
-            Drop image to insert Markdown
-          </div>
-        ) : null}
-        <textarea
-          ref={textareaRef}
-          value={displayMarkdown}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          onDragEnter={handleDragEnter}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`h-full min-h-full w-full resize-none bg-background py-4 pr-4 pl-4 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none ${isDraggingImage ? "bg-primary/5" : ""}`}
-          placeholder="Start writing markdown here... Paste or drop images to insert them."
-          spellCheck={false}
+
+      {/* Editor surface — relative parent so the dock anchors to the visible pane, not the scroll content */}
+      <div className="relative flex-1 min-h-0">
+        <div
+          ref={scrollContainerRef}
+          onScroll={onScroll}
+          className="editor-paper absolute inset-0 overflow-auto"
+        >
+          {isDraggingImage ? (
+            <div className="pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-primary/70 bg-primary/10 text-sm font-medium text-primary shadow-inner">
+              Drop image to insert Markdown
+            </div>
+          ) : null}
+          <textarea
+            ref={textareaRef}
+            value={displayMarkdown}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`h-full min-h-full w-full resize-none bg-transparent py-6 pr-6 pl-6 pb-28 font-mono text-[13.5px] leading-[1.7] text-foreground placeholder:text-muted-foreground/70 transition-colors focus:outline-none ${isDraggingImage ? "bg-primary/5" : ""}`}
+            placeholder="Begin a draft… use the dock below to format. Try the Live button for HTML / CSS / JS."
+            spellCheck={false}
+          />
+        </div>
+
+        <FloatingActionDock
+          onBold={() => handleFormat("**", "**", "bold text")}
+          onItalic={() => handleFormat("*", "*", "italic text")}
+          onStrike={() => handleFormat("~~", "~~", "strikethrough text")}
+          onHeading={() => handleFormat("### ", "", "Heading 3")}
+          onBulletList={() => handleFormat("- ", "", "list item")}
+          onOrderedList={() => handleFormat("1. ", "", "list item")}
+          onQuote={() => handleFormat("> ", "", "quote")}
+          onInlineCode={() => handleFormat("`", "`", "code")}
+          onLink={() => handleFormat("[", "](url)", "link text")}
+          onMermaid={() => handleFormat("```mermaid\n", "\n```", mermaidTemplate)}
+          onLiveBlock={() => handleFormat("```html\n", "\n```", htmlTemplate)}
+          onUploadImage={handleImageUploadClick}
         />
+      </div>
+
+      {/* Status strip — quiet counters only */}
+      <div className="flex h-6 shrink-0 items-center justify-end gap-3 border-t border-border/70 bg-muted/20 px-4 font-mono text-[10px] tracking-wide text-muted-foreground/80">
+        <span>{stats.words.toLocaleString()} words</span>
+        <span className="text-muted-foreground/40">·</span>
+        <span>{stats.chars.toLocaleString()} chars</span>
+        <span className="hidden sm:inline text-muted-foreground/40">·</span>
+        <span className="hidden sm:inline">{stats.minutes} min read</span>
       </div>
     </div>
   )
