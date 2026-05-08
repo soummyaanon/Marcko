@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { nanoid } from "nanoid"
 
 import { auth, authDbPool, ensureAuthSchema } from "@/lib/auth"
+import { resolveAuthUser } from "@/lib/api-keys"
 import { buildContentPreview, decryptStoredContent, encryptStoredContent } from "@/lib/secure-content"
 
 export const runtime = "nodejs"
@@ -278,10 +279,8 @@ export async function POST(request: NextRequest) {
   await ensureAuthSchema()
   await ensureShareSchema()
 
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  })
-  const userId = session?.user?.id ?? null
+  const resolved = await resolveAuthUser(request)
+  const userId = resolved?.userId ?? null
   if (!userId) {
     return authRequiredResponse()
   }
@@ -322,35 +321,24 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  let documentInsertError: unknown = null
   try {
     await insertDocument(documentId)
   } catch (error) {
-    const errorCode = getPostgresErrorCode(error)
-    if (errorCode === "22P02") {
-      // Some deployments use UUID ids for documents. Retry once with a UUID.
-      documentId = randomUUID()
-      try {
+    const code = getPostgresErrorCode(error)
+    try {
+      if (code === "22P02") {
+        // Some deployments use UUID ids for documents. Retry once with a UUID.
+        documentId = randomUUID()
         await insertDocument(documentId)
-      } catch (retryError) {
-        documentInsertError = retryError
-      }
-    }
-
-    if (!documentInsertError && (errorCode === "42703" || errorCode === "42P01")) {
-      try {
+      } else if (code === "42703" || code === "42P01") {
         await ensureShareSchema()
         await insertDocument(documentId)
-      } catch (retryError) {
-        documentInsertError = retryError
+      } else {
+        throw error
       }
-    } else {
-      documentInsertError = error
+    } catch (retryError) {
+      return internalErrorResponse("Failed to create shared document", retryError)
     }
-  }
-
-  if (documentInsertError) {
-    return internalErrorResponse("Failed to create shared document", documentInsertError)
   }
 
   return NextResponse.json({

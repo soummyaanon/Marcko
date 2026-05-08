@@ -21,7 +21,9 @@ import {
   Pencil,
   Share,
   Copy,
+  Key,
 } from "lucide-react";
+import { ApiKeysDialog } from "@/components/api-keys-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -142,6 +144,7 @@ export function EditorToolbar({
   const [isSwitchingVersion, setIsSwitchingVersion] = useState<number | null>(
     null,
   );
+  const [showApiKeysDialog, setShowApiKeysDialog] = useState(false);
 
   useEffect(() => {
     if (!editingDocumentId) {
@@ -716,6 +719,19 @@ export function EditorToolbar({
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
+                  onClick={() => setShowApiKeysDialog(true)}
+                  className="gap-2"
+                >
+                  <Key />
+                  <div className="flex flex-col">
+                    <span>Connect Claude Desktop</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      MCP · API keys
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
                   onClick={handleSignOut}
                   disabled={isSigningOut || isDeletingAccount}
                   className="gap-2"
@@ -1059,6 +1075,11 @@ export function EditorToolbar({
           </div>
         </DialogContent>
       </Dialog>
+
+      <ApiKeysDialog
+        open={showApiKeysDialog}
+        onOpenChange={setShowApiKeysDialog}
+      />
     </>
   );
 }
