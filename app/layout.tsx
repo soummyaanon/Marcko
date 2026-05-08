@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "sonner";
 import { Instrument_Serif, JetBrains_Mono, Inter_Tight } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const instrumentSerif = Instrument_Serif({
@@ -96,11 +97,19 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${instrumentSerif.variable} ${jetbrainsMono.variable} ${interTight.variable}`}
     >
       <body className={`font-sans antialiased`}>
-        {children}
-        <Toaster richColors position="top-right" />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster richColors position="top-right" />
+        </ThemeProvider>
         <Analytics />
       </body>
     </html>

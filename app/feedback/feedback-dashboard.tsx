@@ -11,14 +11,18 @@ import {
   ExternalLink,
   Loader2,
   Menu,
+  Monitor,
+  Moon,
   Plus,
   RotateCw,
   Settings2,
   Sparkles,
+  Sun,
   Trash2,
   Wand2,
   X,
 } from "lucide-react"
+import { useTheme } from "next-themes"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -423,15 +427,18 @@ function Sidebar({
         </div>
       </div>
 
-      <div className="space-y-1.5 border-t border-border pt-4">
-        <SidebarLink href="/widget.js" icon={<Code2 className="h-3 w-3" />} label="Widget source" external />
-        <SidebarLink
-          href="https://www.npmjs.com/package/marcko-mcp"
-          icon={<ExternalLink className="h-3 w-3" />}
-          label="MCP package"
-          external
-        />
-        <SidebarLink href="/" icon={<Settings2 className="h-3 w-3" />} label="Editor settings" />
+      <div className="space-y-2 border-t border-border pt-4">
+        <ThemeToggle />
+        <div className="space-y-1">
+          <SidebarLink href="/widget.js" icon={<Code2 className="h-3 w-3" />} label="Widget source" external />
+          <SidebarLink
+            href="https://www.npmjs.com/package/marcko-mcp"
+            icon={<ExternalLink className="h-3 w-3" />}
+            label="MCP package"
+            external
+          />
+          <SidebarLink href="/" icon={<Settings2 className="h-3 w-3" />} label="Editor settings" />
+        </div>
       </div>
     </div>
   )
@@ -463,6 +470,56 @@ function Sidebar({
         </div>
       ) : null}
     </>
+  )
+}
+
+function ThemeToggle() {
+  const { theme, setTheme, resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  const current = mounted ? theme ?? "system" : "system"
+  const options: { value: string; icon: React.ReactNode; label: string }[] = [
+    { value: "light", icon: <Sun className="h-3 w-3" />, label: "Light" },
+    { value: "dark", icon: <Moon className="h-3 w-3" />, label: "Dark" },
+    { value: "system", icon: <Monitor className="h-3 w-3" />, label: "System" },
+  ]
+
+  return (
+    <div className="space-y-1">
+      <span className="eyebrow">Theme</span>
+      <div
+        role="radiogroup"
+        className="grid grid-cols-3 gap-0.5 rounded-full border border-border bg-background/60 p-0.5 text-[11px]"
+      >
+        {options.map((opt) => {
+          const active = current === opt.value
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-label={opt.label}
+              onClick={() => setTheme(opt.value)}
+              className={`inline-flex items-center justify-center gap-1 rounded-full px-2 py-1 transition ${
+                active
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {opt.icon}
+              <span className="hidden sm:inline">{opt.label}</span>
+            </button>
+          )
+        })}
+      </div>
+      {mounted && resolvedTheme && current === "system" ? (
+        <span className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-muted-foreground">
+          using {resolvedTheme}
+        </span>
+      ) : null}
+    </div>
   )
 }
 
