@@ -30,7 +30,8 @@ import {
   Upload,
   Workflow,
   RotateCcw,
-  RefreshCw
+  RefreshCw,
+  Globe
 } from "lucide-react"
 
 interface MarkdownEditorProps {
@@ -51,6 +52,20 @@ export function MarkdownEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const mermaidTemplate = "graph TD\n    A[Write Markdown] --> B[Live Preview]"
+  const htmlTemplate = `<div class="card">
+  <h2>Hello, Marcko!</h2>
+  <button id="btn">Click me</button>
+</div>
+<style>
+  .card { font-family: system-ui; padding: 16px; border-radius: 12px; background: #f5f5f5; }
+  .card h2 { margin: 0 0 8px; }
+  button { padding: 6px 12px; border-radius: 6px; border: 0; background: #111; color: #fff; cursor: pointer; }
+</style>
+<script>
+  document.getElementById('btn').addEventListener('click', () => {
+    document.querySelector('h2').textContent = 'Clicked!'
+  });
+</script>`
   const [isDraggingImage, setIsDraggingImage] = React.useState(false)
 
   const displayMarkdown = useMemo(
@@ -425,20 +440,47 @@ export function MarkdownEditor({
     const file = e.target.files?.[0]
     if (!file) return
 
+    const lowerName = file.name.toLowerCase()
+    const isHtmlFile =
+      lowerName.endsWith(".html") ||
+      lowerName.endsWith(".htm") ||
+      file.type === "text/html"
+
+    const isCssFile =
+      lowerName.endsWith(".css") || file.type === "text/css"
+
+    const isJsFile =
+      lowerName.endsWith(".js") ||
+      lowerName.endsWith(".mjs") ||
+      lowerName.endsWith(".cjs") ||
+      file.type === "text/javascript" ||
+      file.type === "application/javascript" ||
+      file.type === "application/x-javascript"
+
     const isMarkdownFile =
-      file.name.toLowerCase().endsWith(".md") ||
+      lowerName.endsWith(".md") ||
+      lowerName.endsWith(".markdown") ||
       file.type === "text/markdown" ||
       file.type === "text/x-markdown" ||
       file.type === "text/plain"
 
-    if (!isMarkdownFile) {
+    if (!isHtmlFile && !isCssFile && !isJsFile && !isMarkdownFile) {
       e.target.value = ""
       return
     }
 
+    const wrapInFence = (lang: "html" | "css" | "js", body: string) =>
+      `\`\`\`${lang}\n${body.replace(/```/g, "``​`")}\n\`\`\`\n`
+
     try {
       const fileContent = await file.text()
-      const normalizedContent = normalizeMarkdownImageHtml(fileContent)
+      const normalizedContent = isHtmlFile
+        ? wrapInFence("html", fileContent)
+        : isCssFile
+          ? wrapInFence("css", fileContent)
+          : isJsFile
+            ? wrapInFence("js", fileContent)
+            : normalizeMarkdownImageHtml(fileContent)
       updateValue(normalizedContent, true)
 
       if (textareaRef.current) {
@@ -484,7 +526,7 @@ export function MarkdownEditor({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".md,text/markdown,text/x-markdown,text/plain"
+          accept=".md,.markdown,.html,.htm,.css,.js,.mjs,.cjs,text/markdown,text/x-markdown,text/plain,text/html,text/css,text/javascript,application/javascript"
           className="hidden"
           onChange={handleMarkdownFileUpload}
         />
@@ -546,6 +588,12 @@ export function MarkdownEditor({
             <Workflow className="h-4 w-4" />
           </ToolbarButton>
           <ToolbarButton
+            label="Live HTML / CSS / JS"
+            onClick={() => handleFormat("```html\n", "\n```", htmlTemplate)}
+          >
+            <Globe className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
             label="Link (Cmd+K)"
             onClick={() => handleFormat("[", "](url)", "link text")}
           >
@@ -553,7 +601,7 @@ export function MarkdownEditor({
           </ToolbarButton>
           <div className="mx-1 h-4 w-[1px] bg-border" />
           <ToolbarButton
-            label="Upload Markdown (.md)"
+            label="Upload file (.md / .html / .css / .js)"
             onClick={handleFileUploadClick}
           >
             <Upload className="h-4 w-4" />

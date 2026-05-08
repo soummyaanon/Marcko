@@ -7,6 +7,24 @@ import { defaultUrlTransform } from "react-markdown"
 import type { UrlTransform } from "react-markdown"
 import { getMarckoInlineImageUrl, MARCKO_INLINE_IMAGE_URL_RE } from "@/lib/markdown-inline-images"
 import { MermaidDiagram } from "@/components/mermaid-diagram"
+import { LivePreviewSandbox } from "@/components/live-preview-sandbox"
+
+const LIVE_PREVIEW_LANGUAGES: Record<string, "html" | "css" | "javascript"> = {
+  "language-html": "html",
+  "language-htm": "html",
+  "language-xhtml": "html",
+  "language-css": "css",
+  "language-js": "javascript",
+  "language-javascript": "javascript",
+}
+
+const detectLivePreviewLanguage = (className: string | undefined) => {
+  if (!className) return null
+  for (const token of className.split(/\s+/)) {
+    if (token in LIVE_PREVIEW_LANGUAGES) return LIVE_PREVIEW_LANGUAGES[token]
+  }
+  return null
+}
 
 const IMAGE_DATA_URL_REGEX = /^data:image\/(?:png|jpe?g|gif|webp|avif);base64,/i
 
@@ -79,6 +97,12 @@ export const markdownComponentsWithMermaid: Components = {
       if (codeChild.props?.className?.includes("language-mermaid")) {
         const diagramSource = nodeToText(codeChild.props.children ?? "").trimEnd()
         return <MermaidDiagram chart={diagramSource} />
+      }
+
+      const liveLanguage = detectLivePreviewLanguage(codeChild.props?.className)
+      if (liveLanguage) {
+        const source = nodeToText(codeChild.props?.children ?? "").replace(/\n$/, "")
+        return <LivePreviewSandbox source={source} language={liveLanguage} />
       }
     }
 
