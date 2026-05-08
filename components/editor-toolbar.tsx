@@ -22,6 +22,7 @@ import {
   Share,
   Copy,
   Key,
+  MessageSquare,
 } from "lucide-react";
 import { ApiKeysDialog } from "@/components/api-keys-dialog";
 import { Button } from "@/components/ui/button";
@@ -729,6 +730,17 @@ export function EditorToolbar({
                       MCP · Claude · Cursor · ChatGPT
                     </span>
                   </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="gap-2">
+                  <a href="/feedback">
+                    <MessageSquare />
+                    <div className="flex flex-col">
+                      <span>Feedback widgets</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Embed · collect · read responses
+                      </span>
+                    </div>
+                  </a>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
