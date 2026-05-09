@@ -15,6 +15,7 @@ import { FloatingReaderDock } from "@/components/floating-reader-dock"
 import { markdownComponentsWithMermaid, markdownUrlTransform } from "@/components/markdown-components"
 import { normalizeMarkdownImageHtml } from "@/lib/markdown"
 import { expandMarckoInlineImagesInMarkdown } from "@/lib/markdown-inline-images"
+import { looksLikeHtmlDocument, wrapAsHtmlDocument } from "@/lib/html-source"
 
 type SharedBy = { type: "guest" } | { type: "user"; name: string }
 
@@ -114,6 +115,14 @@ export function SharedDocumentView({
     () =>
       expandMarckoInlineImagesInMarkdown(normalizeMarkdownImageHtml(displayedContent)),
     [displayedContent],
+  )
+  const isHtmlSource = useMemo(
+    () => looksLikeHtmlDocument(displayedContent),
+    [displayedContent],
+  )
+  const htmlSrcDoc = useMemo(
+    () => (isHtmlSource ? wrapAsHtmlDocument(displayedContent) : ""),
+    [isHtmlSource, displayedContent],
   )
   const hasShareLink = Boolean(documentId)
 
@@ -235,14 +244,23 @@ export function SharedDocumentView({
             ref={contentRef}
             className="markdown-content"
           >
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
-              rehypePlugins={[rehypeKatex, rehypeHighlight, rehypeRaw]}
-              components={markdownComponentsWithMermaid}
-              urlTransform={markdownUrlTransform}
-            >
-              {normalizedContent}
-            </ReactMarkdown>
+            {isHtmlSource ? (
+              <iframe
+                title="HTML preview"
+                srcDoc={htmlSrcDoc}
+                sandbox="allow-scripts allow-popups allow-forms allow-modals"
+                className="block h-[calc(100vh-12rem)] w-full rounded-md border border-border bg-white"
+              />
+            ) : (
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
+                rehypePlugins={[rehypeKatex, rehypeHighlight, rehypeRaw]}
+                components={markdownComponentsWithMermaid}
+                urlTransform={markdownUrlTransform}
+              >
+                {normalizedContent}
+              </ReactMarkdown>
+            )}
           </div>
         </article>
       </main>

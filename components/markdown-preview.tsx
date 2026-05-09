@@ -19,6 +19,7 @@ import {
 import { markdownComponentsWithMermaid, markdownUrlTransform } from "@/components/markdown-components"
 import { normalizeMarkdownImageHtml } from "@/lib/markdown"
 import { expandMarckoInlineImagesInMarkdown } from "@/lib/markdown-inline-images"
+import { looksLikeHtmlDocument, wrapAsHtmlDocument } from "@/lib/html-source"
 
 interface MarkdownPreviewProps {
   content: string
@@ -43,10 +44,11 @@ export function MarkdownPreview({
     [content],
   )
 
-  const isFullHtmlDocument = useMemo(() => {
-    const trimmed = content.trimStart().toLowerCase()
-    return trimmed.startsWith("<!doctype") || trimmed.startsWith("<html")
-  }, [content])
+  const isHtmlSource = useMemo(() => looksLikeHtmlDocument(content), [content])
+  const htmlSrcDoc = useMemo(
+    () => (isHtmlSource ? wrapAsHtmlDocument(content) : ""),
+    [isHtmlSource, content],
+  )
 
   const copyRenderedContent = async () => {
     if (previewRef.current) {
@@ -137,12 +139,12 @@ export function MarkdownPreview({
         onScroll={onScroll}
         className="flex-1 overflow-auto min-h-0"
       >
-        {isFullHtmlDocument ? (
+        {isHtmlSource ? (
           <div ref={previewRef} className="h-full w-full">
             <iframe
               title="HTML preview"
-              srcDoc={content}
-              sandbox="allow-same-origin allow-scripts allow-popups"
+              srcDoc={htmlSrcDoc}
+              sandbox="allow-scripts allow-popups allow-forms allow-modals"
               className="h-full min-h-[calc(100vh-3rem)] w-full border-0 bg-white"
             />
           </div>
