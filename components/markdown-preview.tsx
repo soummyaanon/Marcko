@@ -43,6 +43,11 @@ export function MarkdownPreview({
     [content],
   )
 
+  const isFullHtmlDocument = useMemo(() => {
+    const trimmed = content.trimStart().toLowerCase()
+    return trimmed.startsWith("<!doctype") || trimmed.startsWith("<html")
+  }, [content])
+
   const copyRenderedContent = async () => {
     if (previewRef.current) {
       try {
@@ -132,19 +137,30 @@ export function MarkdownPreview({
         onScroll={onScroll}
         className="flex-1 overflow-auto min-h-0"
       >
-        <div
-          ref={previewRef}
-          className="markdown-content py-4 pr-4 pl-10"
-        >
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
-            rehypePlugins={[rehypeKatex, rehypeHighlight, rehypeRaw]}
-            components={markdownComponentsWithMermaid}
-            urlTransform={markdownUrlTransform}
+        {isFullHtmlDocument ? (
+          <div ref={previewRef} className="h-full w-full">
+            <iframe
+              title="HTML preview"
+              srcDoc={content}
+              sandbox="allow-same-origin allow-scripts allow-popups"
+              className="h-full min-h-[calc(100vh-3rem)] w-full border-0 bg-white"
+            />
+          </div>
+        ) : (
+          <div
+            ref={previewRef}
+            className="markdown-content py-4 pr-4 pl-10"
           >
-            {normalizedContent}
-          </ReactMarkdown>
-        </div>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
+              rehypePlugins={[rehypeKatex, rehypeHighlight, rehypeRaw]}
+              components={markdownComponentsWithMermaid}
+              urlTransform={markdownUrlTransform}
+            >
+              {normalizedContent}
+            </ReactMarkdown>
+          </div>
+        )}
       </div>
     </div>
   )
