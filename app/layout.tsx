@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { Instrument_Serif, JetBrains_Mono, Inter_Tight } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { MarckoFeedback } from "@/components/marcko-feedback";
+import { getSiteOrigin } from "@/lib/site-url";
 import "./globals.css";
 
 const instrumentSerif = Instrument_Serif({
@@ -28,17 +29,24 @@ const interTight = Inter_Tight({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://marcko.bixai.dev"),
+  metadataBase: new URL(getSiteOrigin()),
+  applicationName: "Marcko",
+  category: "productivity",
   title: {
     default:
-      "Marcko - Open Source Markdown Editor with Secure Document Sharing",
+      "Marcko V2 - Markdown Editor with MCP Publishing and Feedback Widgets",
     template: "%s | Marcko",
   },
   description:
-    "Open source markdown editor with real-time preview, secure document sharing, encryption at rest, and AI integration. Free for developers and writers.",
+    "Marcko V2 is an open source markdown editor with real-time preview, secure document sharing, MCP publishing for AI clients, and embeddable feedback widgets.",
   keywords: [
     "markdown editor",
     "markdown preview",
+    "MCP markdown editor",
+    "MCP server",
+    "AI document publishing",
+    "feedback widget",
+    "feedback collector",
     "secure document sharing",
     "markdown",
     "open source",
@@ -47,28 +55,44 @@ export const metadata: Metadata = {
     "marcko",
   ],
   authors: [{ name: "Marcko Team" }],
+  creator: "Marcko",
+  publisher: "Marcko",
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://marcko.bixai.dev",
+    url: "/",
     siteName: "Marcko",
-    title: "Marcko - Open Source Markdown Editor with Secure Document Sharing",
+    title: "Marcko V2 - Markdown Editor with MCP Publishing and Feedback Widgets",
     description:
-      "Open source markdown editor with real-time preview, secure document sharing, encryption at rest, and AI integration.",
+      "Open source markdown editor with real-time preview, secure sharing, MCP publishing for AI clients, and embeddable feedback collection.",
     images: [
       {
         url: "/og.png",
         width: 1784,
         height: 882,
-        alt: "Marcko - Open Source Markdown Editor with Enterprise Secure Sharing",
+        alt: "Marcko V2 markdown editor with secure sharing, MCP publishing, and feedback widgets",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Marcko - Open Source Markdown Editor with Secure Document Sharing",
+    title: "Marcko V2 - Markdown Editor with MCP Publishing",
     description:
-      "Open source markdown editor with real-time preview, secure document sharing, and AI integration.",
+      "Open source markdown editor with secure sharing, MCP publishing for AI clients, and feedback widgets.",
     images: ["/og.png"],
   },
   icons: {
@@ -95,6 +119,46 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const origin = getSiteOrigin();
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": `${origin}/#website`,
+        url: origin,
+        name: "Marcko",
+        description:
+          "Open source markdown editor with secure sharing, MCP publishing, and embeddable feedback widgets.",
+        inLanguage: "en-US",
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": `${origin}/#software`,
+        name: "Marcko",
+        applicationCategory: "ProductivityApplication",
+        operatingSystem: "Web",
+        url: origin,
+        image: `${origin}/og.png`,
+        description:
+          "Marcko V2 helps developers and writers draft markdown, publish from MCP-compatible AI clients, securely share documents, and collect product feedback.",
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "USD",
+        },
+        featureList: [
+          "Real-time markdown preview",
+          "Secure document sharing",
+          "MCP publishing from AI clients",
+          "Embeddable feedback widgets",
+          "GitHub Flavored Markdown",
+          "Math and Mermaid rendering",
+        ],
+      },
+    ],
+  };
+
   return (
     <html
       lang="en"
@@ -102,6 +166,10 @@ export default function RootLayout({
       className={`${instrumentSerif.variable} ${jetbrainsMono.variable} ${interTight.variable}`}
     >
       <body className={`font-sans antialiased`}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

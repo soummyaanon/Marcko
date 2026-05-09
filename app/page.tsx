@@ -13,17 +13,17 @@ import { authClient } from "@/lib/auth-client"
 import { expandMarckoInlineImagesInMarkdown } from "@/lib/markdown-inline-images"
 
 /** Bump this when you change DEFAULT_MARKDOWN to refresh the default for all users */
-const DEFAULT_CONTENT_VERSION = 9
+const DEFAULT_CONTENT_VERSION = 10
 
 const STORAGE_KEY = "marcko-content"
 
 const DEFAULT_MARKDOWN = `<div align="center">
 
-# Welcome to Marcko ⚡️
+# Welcome to Marcko V2 ⚡️
 
 **The **Open Source** markdown editor for developers and writers.**
 
-**Enterprise-ready secure sharing: authenticated link creation, encryption at rest, and link revocation controls.**
+**Now with MCP publishing for AI clients, embeddable feedback collection, and enterprise-ready secure sharing.**
 
 [Get Started Now](#) • [View on GitHub](https://github.com/soummyaanon/Marcko)
 
@@ -65,9 +65,11 @@ const DEFAULT_MARKDOWN = `<div align="center">
 
 <br>
 
-## 🚀 Key Features
+## 🚀 Marcko V2 Features
 
 - **🔐 Secure by Default**: Shared docs are encrypted at rest and only signed-in users can create share links.
+- **🤖 MCP Publishing**: Publish drafts from MCP-compatible AI clients like **Claude**, **Cursor**, **Windsurf**, **ChatGPT**, and more.
+- **💬 Feedback Collector**: Add embeddable feedback widgets to your apps and review structured responses in Marcko.
 - **🔮 Open with AI**: Directly open your current document in **ChatGPT**, **Gemini**, or **Claude**.
 - **Real-time Preview**: Type on the left, see it on the right. Instant feedback.
 - **GitHub Flavored**: We support tables, task lists, strikethrough, and more.
@@ -140,6 +142,35 @@ graph TD
 
 
 <br>
+
+## 🤖 MCP Support
+
+Publish markdown from your AI workflow without copy-paste. Generate a Marcko API key, connect the **marcko-mcp** server, and send polished drafts straight into your Marcko library.
+
+\`\`\`json
+{
+  "mcpServers": {
+    "marcko": {
+      "command": "npx",
+      "args": ["-y", "marcko-mcp@latest"],
+      "env": {
+        "MARCKO_API_KEY": "mk_..."
+      }
+    }
+  }
+}
+\`\`\`
+
+Use it with Claude Desktop, Claude Code, Cursor, Windsurf, Cline, Continue, Zed, ChatGPT, and other MCP-compatible clients.
+
+## 💬 Feedback Collector
+
+Create product feedback widgets, customize questions, copy the embed snippet, and collect responses from any website or app.
+
+- **Embeddable widget**: one script tag adds feedback collection to your product.
+- **Custom questions**: short text, long text, ratings, and choice inputs.
+- **Response dashboard**: review submitted answers, page URLs, timestamps, and customer signal.
+- **Flexible triggers**: use the built-in floating button or open the widget from your own UI.
 
 ## 🌐 Sharing Features
 

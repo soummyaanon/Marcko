@@ -2,11 +2,19 @@
   "name": "marcko",
   "version": "0.1.0",
   "private": true,
+  "pnpm": {
+    "overrides": {
+      "@better-auth/sso": "1.5.0-beta.20",
+      "@better-auth/core@^1.5.0-beta": "1.5.0-beta.20"
+    }
+  },
   "scripts": {
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@better-auth/infra": "^0.1.8",
@@ -83,6 +91,8 @@
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.5"
   }
 }

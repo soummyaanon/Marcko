@@ -1,6 +1,6 @@
 {
   "name": "marcko-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Marcko MCP server — publish drafts and configure Feedback widgets from any MCP-compatible AI client (Claude, Cursor, Windsurf, ChatGPT, …).",
   "license": "MIT",
   "author": "Marcko",
