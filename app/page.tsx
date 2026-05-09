@@ -4,12 +4,13 @@ import { Suspense, useState, useEffect, useCallback, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { MarkdownEditor } from "@/components/markdown-editor"
 import { MarkdownPreview } from "@/components/markdown-preview"
-import { EditorToolbar } from "@/components/editor-toolbar"
+import { MarckoSidebar } from "@/components/marcko-sidebar"
+import { MarckoTopbar } from "@/components/marcko-topbar"
 import { SharedDocumentView } from "@/components/shared-document-view"
 import { GoogleSignInModal } from "@/components/auth/google-sign-in-modal"
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { authClient } from "@/lib/auth-client"
 import { expandMarckoInlineImagesInMarkdown } from "@/lib/markdown-inline-images"
-import { Github, Star } from "lucide-react"
 
 /** Bump this when you change DEFAULT_MARKDOWN to refresh the default for all users */
 const DEFAULT_CONTENT_VERSION = 9
@@ -655,16 +656,15 @@ function HomeContent() {
     )
   }
 
+  const documentTitle = (() => {
+    const firstHeading = markdown.match(/^#\s+(.+?)\s*$/m)?.[1]?.trim()
+    if (firstHeading) return firstHeading.replace(/[*_`]/g, "").slice(0, 64)
+    return null
+  })()
+
   return (
-    <div className="fixed inset-0 flex flex-col bg-background overflow-hidden">
-      <EditorToolbar
-        onShare={handleShare}
-        onShareAuthRequired={handleShareAuthRequired}
-        onUpdateShare={editingDocumentId ? requestUpdateShare : undefined}
-        onLoadVersion={editingDocumentId ? handleLoadVersion : undefined}
-        onEditDocument={handleEditDocument}
-        editingDocumentId={editingDocumentId}
-        editorContent={editingDocumentId ? markdown : undefined}
+    <SidebarProvider defaultOpen className="bg-background">
+      <MarckoSidebar
         theme={theme}
         onThemeChange={setTheme}
         isAuthenticated={Boolean(sessionUser)}
@@ -675,73 +675,55 @@ function HomeContent() {
         userName={sessionUser?.name ?? null}
         userEmail={sessionUser?.email ?? null}
         userImage={sessionUser?.image ?? null}
-        shareTriggerToken={shareTriggerToken}
-        shareWarning={shareWarning}
+        onEditDocument={handleEditDocument}
+        activeDocumentId={editingDocumentId}
       />
+      <SidebarInset className="flex h-svh flex-col overflow-hidden bg-background">
+        <MarckoTopbar
+          onShare={handleShare}
+          onShareAuthRequired={handleShareAuthRequired}
+          onUpdateShare={editingDocumentId ? requestUpdateShare : undefined}
+          onLoadVersion={editingDocumentId ? handleLoadVersion : undefined}
+          editingDocumentId={editingDocumentId}
+          editorContent={editingDocumentId ? markdown : undefined}
+          shareTriggerToken={shareTriggerToken}
+          shareWarning={shareWarning}
+          documentTitle={documentTitle}
+          isAuthenticated={Boolean(sessionUser)}
+        />
 
-      <main className="flex flex-1 flex-col overflow-hidden">
-        <ResizablePanelGroup direction={direction}>
-          <ResizablePanel defaultSize={45} minSize={20}>
-            <div className="flex h-full flex-col border-r border-border/70">
-              <MarkdownEditor
-                value={markdown}
-                onChange={setMarkdown}
-                defaultContent={DEFAULT_MARKDOWN}
-                scrollContainerRef={editorScrollRef}
-                onScroll={handleEditorScroll}
-              />
-            </div>
-          </ResizablePanel>
+        <main className="flex flex-1 flex-col overflow-hidden">
+          <ResizablePanelGroup direction={direction}>
+            <ResizablePanel defaultSize={45} minSize={20}>
+              <div className="flex h-full flex-col">
+                <MarkdownEditor
+                  value={markdown}
+                  onChange={setMarkdown}
+                  defaultContent={DEFAULT_MARKDOWN}
+                  scrollContainerRef={editorScrollRef}
+                  onScroll={handleEditorScroll}
+                />
+              </div>
+            </ResizablePanel>
 
-          <ResizableHandle withHandle className="bg-transparent transition-colors hover:bg-primary/20 data-[resize-handle-state=hover]:bg-primary/30 data-[resize-handle-state=drag]:bg-primary/40" />
+            <ResizableHandle className="w-px bg-transparent transition-colors hover:bg-foreground/15 data-[resize-handle-state=drag]:bg-foreground/30" />
 
-          <ResizablePanel defaultSize={55} minSize={20}>
-            <div className="flex h-full flex-col">
-              <MarkdownPreview
-                content={markdown}
-                onOpenPreview={() => setShowFullPreview(true)}
-                scrollContainerRef={previewScrollRef}
-                onScroll={handlePreviewScroll}
-              />
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </main>
+            <ResizablePanel defaultSize={55} minSize={20}>
+              <div className="flex h-full flex-col">
+                <MarkdownPreview
+                  content={markdown}
+                  onOpenPreview={() => setShowFullPreview(true)}
+                  scrollContainerRef={previewScrollRef}
+                  onScroll={handlePreviewScroll}
+                />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </main>
 
-      <footer className="border-t border-border/70 bg-background/70 px-4 py-1.5 backdrop-blur-sm md:px-6">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-          <div className="flex items-center gap-2 font-mono text-[10px] tracking-wide text-muted-foreground">
-            <span className="eyebrow">Marcko</span>
-            <span className="hidden sm:inline text-muted-foreground/60">·</span>
-            <span className="hidden sm:inline">An open-source editorial workstation</span>
-          </div>
-          <div className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
-            <span className="hidden sm:inline">made by</span>
-            <a
-              href="https://github.com/soummyaanon"
-              target="_blank"
-              rel="noreferrer"
-              className="font-display text-[14px] italic leading-none text-foreground transition-opacity hover:opacity-80"
-            >
-              soummyaanon
-            </a>
-            <span className="hidden h-3 w-px bg-border/80 sm:inline-block" />
-            <a
-              href="https://github.com/soummyaanon/Marcko"
-              target="_blank"
-              rel="noreferrer"
-              className="group inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-card/40 px-2.5 py-1 text-[10px] font-medium tracking-wide text-foreground transition-all hover:border-primary/40 hover:bg-primary/5"
-            >
-              <Github className="h-3 w-3" />
-              <span>Star</span>
-              <Star className="h-3 w-3 transition-transform group-hover:rotate-12 group-hover:text-primary" />
-            </a>
-          </div>
-        </div>
-      </footer>
-
-      <GoogleSignInModal open={showSignInModal} onOpenChange={setShowSignInModal} />
-    </div>
+        <GoogleSignInModal open={showSignInModal} onOpenChange={setShowSignInModal} />
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
 

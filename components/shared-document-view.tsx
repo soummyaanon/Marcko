@@ -9,37 +9,9 @@ import rehypeKatex from "rehype-katex"
 import rehypeHighlight from "rehype-highlight"
 import rehypeRaw from "rehype-raw"
 import "katex/dist/katex.min.css"
-import {
-  ArrowLeft,
-  Check,
-  Copy,
-  FileText,
-  Moon,
-  Sun,
-  Monitor,
-  Link,
-  Pencil,
-  Github,
-  Star,
-  Bot,
-  Menu,
-  Lock,
-  GitBranch,
-  Loader2,
-} from "lucide-react"
+import { Github, Lock, Star } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu"
-import { OpenAI } from "@/components/logo/openai"
-import { ClaudeAI } from "@/components/logo/claude"
-import { PerplexityAI } from "@/components/logo/perplexity"
+import { FloatingReaderDock } from "@/components/floating-reader-dock"
 import { markdownComponentsWithMermaid, markdownUrlTransform } from "@/components/markdown-components"
 import { normalizeMarkdownImageHtml } from "@/lib/markdown"
 import { expandMarckoInlineImagesInMarkdown } from "@/lib/markdown-inline-images"
@@ -237,290 +209,14 @@ export function SharedDocumentView({
     setTimeout(() => setCopiedLink(false), 2000)
   }
 
+  const dockPrimaryAction = onBackToEditor
+    ? { kind: "back-to-editor" as const, onClick: onBackToEditor }
+    : isOwner && documentId
+      ? { kind: "edit-owned" as const, href: `/?edit=${encodeURIComponent(documentId)}` }
+      : { kind: "new-document" as const, href: "/" }
+
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border/70 bg-background/80 px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 md:px-6">
-        <div className="pointer-events-none absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
-        <div className="flex items-center gap-3 min-w-0">
-          {onBackToEditor ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onBackToEditor}
-              className="h-9 gap-1.5 rounded-full px-3 text-[12px] text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Back</span>
-            </Button>
-          ) : null}
-
-          <a href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-b from-primary to-primary/80 shadow-[0_2px_8px_-2px_color-mix(in_oklab,var(--primary)_45%,transparent)]">
-              <FileText className="h-4 w-4 text-primary-foreground" />
-              <span className="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background dot-pulse" />
-            </div>
-            <div className="leading-tight">
-              <div className="flex items-baseline gap-1.5">
-                <h1 className="font-display text-[22px] italic leading-none text-foreground">
-                  Marcko
-                </h1>
-                <span className="hidden eyebrow sm:inline">
-                  {onBackToEditor ? "Reader · Preview" : "Reader · Shared"}
-                </span>
-              </div>
-              <p className="mt-0.5 hidden text-[10px] tracking-wide text-muted-foreground/90 sm:block">
-                {onBackToEditor ? "Distraction-free draft view" : "Shared from a Marcko workspace"}
-              </p>
-            </div>
-          </a>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Defer Radix dropdowns until after mount to avoid hydration mismatch (React 19 + Radix useId) */}
-          {mounted ? (
-          <>
-          <div className="hidden md:flex items-center gap-2">
-            {hasShareLink ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-1.5 hidden sm:flex">
-                    <Bot className="h-4 w-4" />
-                    <span className="hidden lg:inline">Open with AI</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => openInApp("chatgpt")}>
-                    <OpenAI className="mr-2 h-4 w-4" />
-                    ChatGPT
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => openInApp("claude")}>
-                    <ClaudeAI className="mr-2 h-4 w-4" />
-                    Claude
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => openInApp("perplexity")}>
-                    <PerplexityAI className="mr-2 h-4 w-4" />
-                    Perplexity (Research)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9">
-                  {theme === "light" && <Sun className="h-4 w-4" />}
-                  {theme === "dark" && <Moon className="h-4 w-4" />}
-                  {theme === "system" && <Monitor className="h-4 w-4" />}
-                  <span className="sr-only">Toggle theme</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setTheme("light")}>
-                  <Sun className="mr-2 h-4 w-4" />
-                  Light
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("dark")}>
-                  <Moon className="mr-2 h-4 w-4" />
-                  Dark
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("system")}>
-                  <Monitor className="mr-2 h-4 w-4" />
-                  System
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {hasShareLink ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={copyLink}
-                className="gap-1.5"
-              >
-                {copiedLink ? (
-                  <>
-                    <Check className="h-4 w-4" />
-                    <span className="hidden sm:inline">Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <Link className="h-4 w-4" />
-                    <span className="hidden sm:inline">Copy Link</span>
-                  </>
-                )}
-              </Button>
-            ) : null}
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={copyContent}
-              className="gap-1.5"
-            >
-              {copiedContent ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  <span className="hidden sm:inline">Copied as Markdown</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="h-4 w-4" />
-                  <span className="hidden sm:inline">Copy as Markdown</span>
-                </>
-              )}
-            </Button>
-
-            {versions.length > 1 ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1.5">
-                    <GitBranch className="h-4 w-4" />
-                    <span className="hidden sm:inline">
-                      {activeVersion === null ? "Versions" : `v${activeVersion}`}
-                    </span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel className="text-xs">
-                    Document versions
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {[...versions].reverse().map((entry) => {
-                    const isLatest = entry.version === latestVersion
-                    const isActive = entry.version === activeVersion
-                    return (
-                      <DropdownMenuItem
-                        key={entry.version}
-                        onClick={() => void handleSelectVersion(entry.version)}
-                        disabled={isSwitchingVersion !== null}
-                        className="flex items-center justify-between gap-2"
-                      >
-                        <span className="text-sm font-medium">
-                          v{entry.version}
-                          {entry.version === 0 ? " (original)" : ""}
-                          {isLatest ? " · latest" : ""}
-                        </span>
-                        {isSwitchingVersion === entry.version ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : isActive ? (
-                          <Check className="h-3.5 w-3.5" />
-                        ) : null}
-                      </DropdownMenuItem>
-                    )
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
-
-            {onBackToEditor ? (
-              <Button size="sm" className="gap-1.5" onClick={onBackToEditor}>
-                <Pencil className="h-4 w-4" />
-                <span className="hidden sm:inline">Back to Editor</span>
-              </Button>
-            ) : isOwner && documentId ? (
-              <Button asChild size="sm" className="gap-1.5">
-                <a href={`/?edit=${encodeURIComponent(documentId)}`}>
-                  <Pencil className="h-4 w-4" />
-                  <span className="hidden sm:inline">Edit</span>
-                </a>
-              </Button>
-            ) : (
-              <Button asChild size="sm" className="gap-1.5">
-                <a href="/">
-                  <Pencil className="h-4 w-4" />
-                  <span className="hidden sm:inline">New Document</span>
-                </a>
-              </Button>
-            )}
-          </div>
-
-          {/* Mobile View */}
-          <div className="flex md:hidden items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
-                  <span className="sr-only">Open menu</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                {hasShareLink ? (
-                  <>
-                    <DropdownMenuLabel>Open with AI</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => openInApp("chatgpt")}>
-                      <OpenAI className="mr-2 h-4 w-4" />
-                      ChatGPT
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => openInApp("claude")}>
-                      <ClaudeAI className="mr-2 h-4 w-4" />
-                      Claude
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => openInApp("perplexity")}>
-                      <PerplexityAI className="mr-2 h-4 w-4" />
-                      Perplexity
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                ) : null}
-
-                <DropdownMenuLabel>Theme</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => setTheme("light")}>
-                  <Sun className="mr-2 h-4 w-4" />
-                  Light
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("dark")}>
-                  <Moon className="mr-2 h-4 w-4" />
-                  Dark
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("system")}>
-                  <Monitor className="mr-2 h-4 w-4" />
-                  System
-                </DropdownMenuItem>
-
-                {hasShareLink ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={copyLink}>
-                      {copiedLink ? <Check className="mr-2 h-4 w-4" /> : <Link className="mr-2 h-4 w-4" />}
-                      <span>{copiedLink ? "Copied" : "Copy Link"}</span>
-                    </DropdownMenuItem>
-                  </>
-                ) : null}
-
-                <DropdownMenuItem onClick={copyContent}>
-                  {copiedContent ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
-                  <span>{copiedContent ? "Copied" : "Copy Markdown"}</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator />
-
-                {onBackToEditor ? (
-                  <DropdownMenuItem onClick={onBackToEditor}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    <span>Back to Editor</span>
-                  </DropdownMenuItem>
-                ) : isOwner && documentId ? (
-                  <DropdownMenuItem asChild>
-                    <a href={`/?edit=${encodeURIComponent(documentId)}`}>
-                      <Pencil className="mr-2 h-4 w-4" />
-                      <span>Edit</span>
-                    </a>
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem asChild>
-                    <a href="/">
-                      <Pencil className="mr-2 h-4 w-4" />
-                      <span>New Document</span>
-                    </a>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          </>
-          ) : null}
-        </div>
-      </header>
+    <div className="relative flex min-h-screen flex-col bg-background">
 
       <main className="flex-1 px-4 py-8 md:px-6">
         <article className="mx-auto max-w-3xl">
@@ -584,6 +280,25 @@ export function SharedDocumentView({
           </a>
         </div>
       </footer>
+
+      {mounted ? (
+        <FloatingReaderDock
+          theme={theme}
+          onThemeChange={setTheme}
+          hasShareLink={hasShareLink}
+          onCopyLink={copyLink}
+          copiedLink={copiedLink}
+          onCopyContent={copyContent}
+          copiedContent={copiedContent}
+          onOpenInApp={hasShareLink ? openInApp : undefined}
+          versions={versions}
+          activeVersion={activeVersion}
+          latestVersion={latestVersion}
+          isSwitchingVersion={isSwitchingVersion}
+          onSelectVersion={(v) => void handleSelectVersion(v)}
+          primaryAction={dockPrimaryAction}
+        />
+      ) : null}
     </div>
   )
 }

@@ -10,7 +10,6 @@ import {
   Copy,
   ExternalLink,
   Loader2,
-  Menu,
   Monitor,
   Moon,
   Plus,
@@ -27,6 +26,20 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  Sidebar as AppSidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar"
 import { copyTextToClipboard } from "@/lib/clipboard"
 
 type QuestionType = "short_text" | "long_text" | "rating" | "single_choice"
@@ -146,7 +159,6 @@ export function FeedbackDashboard() {
   const [authError, setAuthError] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     if (typeof window !== "undefined") setOrigin(window.location.origin)
@@ -209,7 +221,6 @@ export function FeedbackDashboard() {
       const summary: WidgetSummary = { ...widget, responseCount: 0, lastResponseAt: null }
       setItems((prev) => [summary, ...prev])
       setSelectedId(summary.id)
-      setSidebarOpen(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not create widget")
     }
@@ -257,53 +268,40 @@ export function FeedbackDashboard() {
   }
 
   return (
-    <div className="relative h-[100dvh] overflow-hidden bg-background text-foreground">
-      {/* Mobile top bar */}
-      <header className="flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-3 lg:hidden">
-        <button
-          type="button"
-          onClick={() => setSidebarOpen(true)}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground transition hover:text-foreground"
-          aria-label="Open widgets"
-        >
-          <Menu className="h-4 w-4" />
-        </button>
-        <div className="flex items-center gap-2 truncate">
-          <span className="eyebrow">Marcko · Feedback</span>
-          {selected ? (
-            <>
-              <span className="text-muted-foreground">/</span>
-              <span className="truncate font-display text-[16px] italic">{selected.name}</span>
-            </>
-          ) : null}
-        </div>
-        <Button
-          size="sm"
-          onClick={handleCreate}
-          className="h-9 shrink-0 gap-1 rounded-full bg-foreground px-3 text-[12px] font-semibold text-background hover:bg-foreground/90"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          New
-        </Button>
-      </header>
+    <SidebarProvider defaultOpen className="bg-background">
+      <Sidebar
+        items={items}
+        loading={loading}
+        selectedId={selectedId}
+        onSelect={(id) => setSelectedId(id)}
+        onCreate={handleCreate}
+      />
+      <SidebarInset className="flex h-svh flex-col overflow-hidden bg-background text-foreground">
+        {/* Mobile top bar — shows the trigger since no edge rail on mobile */}
+        <header className="flex items-center justify-between gap-3 bg-background px-3 py-3 lg:hidden">
+          <SidebarTrigger className="size-8 text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground" />
+          <div className="flex items-center gap-2 truncate">
+            {selected ? (
+              <span className="truncate font-display text-[16px] italic leading-none">
+                {selected.name}
+              </span>
+            ) : (
+              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                Feedback
+              </span>
+            )}
+          </div>
+          <Button
+            size="sm"
+            onClick={handleCreate}
+            className="h-8 shrink-0 gap-1 rounded-md bg-foreground px-3 text-[11px] font-medium text-background hover:bg-foreground/90"
+          >
+            <Plus className="size-3.5" />
+            New
+          </Button>
+        </header>
 
-      <div className="grid h-full grid-cols-1 lg:grid-cols-[300px_1fr]">
-        {/* Sidebar */}
-        <Sidebar
-          items={items}
-          loading={loading}
-          selectedId={selectedId}
-          onSelect={(id) => {
-            setSelectedId(id)
-            setSidebarOpen(false)
-          }}
-          onCreate={handleCreate}
-          mobileOpen={sidebarOpen}
-          onCloseMobile={() => setSidebarOpen(false)}
-        />
-
-        {/* Main pane */}
-        <main className="flex h-full min-h-0 flex-col overflow-hidden">
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {error ? (
             <div className="m-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-[12px] text-destructive">
               {error}
@@ -328,8 +326,8 @@ export function FeedbackDashboard() {
             <EmptyState onCreate={handleCreate} />
           )}
         </main>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
 
@@ -339,189 +337,250 @@ function Sidebar({
   selectedId,
   onSelect,
   onCreate,
-  mobileOpen,
-  onCloseMobile,
 }: {
   items: WidgetSummary[]
   loading: boolean
   selectedId: string | null
   onSelect: (id: string) => void
   onCreate: () => void
-  mobileOpen: boolean
-  onCloseMobile: () => void
 }) {
-  const content = (
-    <div className="flex h-full flex-col gap-5 border-r border-border bg-muted/30 p-5">
-      <div className="space-y-3">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground transition hover:text-foreground"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          Back to editor
-        </Link>
-        <div>
-          <span className="eyebrow">Marcko</span>
-          <h2 className="font-display text-[26px] italic leading-none text-foreground">
-            Feedback
-          </h2>
-          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-            Embed widgets. Read responses.
-          </p>
-        </div>
-        <Button
-          onClick={onCreate}
-          size="sm"
-          className="h-9 w-full gap-1.5 rounded-full bg-foreground text-[12px] font-semibold text-background hover:bg-foreground/90"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          New widget
-        </Button>
-      </div>
+  const { state, isMobile, setOpenMobile } = useSidebar()
+  const collapsed = state === "collapsed" && !isMobile
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <span className="eyebrow">Widgets · {items.length}</span>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-0.5">
-          {loading && items.length === 0 ? (
-            <p className="text-[11px] text-muted-foreground">Loading…</p>
-          ) : items.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-background/50 p-4 text-center">
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
-                No widgets yet.<br />Create one to get started.
-              </p>
-            </div>
-          ) : (
-            items.map((widget) => (
-              <button
-                key={widget.id}
-                type="button"
-                onClick={() => onSelect(widget.id)}
-                className={`group flex items-center gap-3 rounded-lg px-2.5 py-2 text-left transition ${
-                  selectedId === widget.id
-                    ? "bg-background shadow-[inset_0_0_0_1px_hsl(var(--border))]"
-                    : "hover:bg-background/60"
-                }`}
-              >
-                <span
-                  className={`relative h-2 w-2 shrink-0 rounded-full transition ${
-                    selectedId === widget.id ? "scale-110" : "opacity-70 group-hover:opacity-100"
-                  }`}
-                  style={{ background: widget.accent }}
-                  aria-hidden
-                />
-                <span className="min-w-0 flex-1">
-                  <span
-                    className={`block truncate font-display text-[15px] italic leading-tight ${
-                      selectedId === widget.id ? "text-foreground" : "text-foreground/80"
-                    }`}
-                  >
-                    {widget.name}
-                  </span>
-                  <span className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-muted-foreground">
-                    {widget.responseCount} {widget.responseCount === 1 ? "reply" : "replies"} ·{" "}
-                    {formatRelative(widget.lastResponseAt)}
-                  </span>
-                </span>
-              </button>
-            ))
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-2 border-t border-border pt-4">
-        <ThemeToggle />
-        <div className="space-y-1">
-          <SidebarLink href="/widget.js" icon={<Code2 className="h-3 w-3" />} label="Widget source" external />
-          <SidebarLink
-            href="https://www.npmjs.com/package/marcko-mcp"
-            icon={<ExternalLink className="h-3 w-3" />}
-            label="MCP package"
-            external
-          />
-          <SidebarLink href="/" icon={<Settings2 className="h-3 w-3" />} label="Editor settings" />
-        </div>
-      </div>
-    </div>
-  )
+  const closeMobile = () => {
+    if (isMobile) setOpenMobile(false)
+  }
 
   return (
-    <>
-      {/* Desktop */}
-      <aside className="hidden h-full lg:block">{content}</aside>
+    <AppSidebar
+      collapsible="icon"
+      className="border-r-0 group-data-[side=left]:border-r-0 bg-sidebar"
+    >
+      <SidebarHeader className="px-3 py-4">
+        <Link
+          href="/"
+          onClick={closeMobile}
+          className="group/brand flex items-center gap-2.5 outline-none"
+        >
+          <span aria-hidden className="relative inline-flex h-2 w-2 shrink-0">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500/40 dot-pulse" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+          </span>
+          <span
+            className={`flex flex-col leading-none transition-opacity duration-200 ${
+              collapsed ? "opacity-0" : ""
+            }`}
+          >
+            <span className="font-display text-[22px] italic tracking-tight text-foreground">
+              Feedback
+            </span>
+            <span className="mt-1 font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground/80">
+              Embed · collect · read
+            </span>
+          </span>
+        </Link>
 
-      {/* Mobile sheet */}
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-50 flex lg:hidden" role="dialog" aria-modal="true">
-          <div
-            className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
-            onClick={onCloseMobile}
-            aria-hidden
-          />
-          <div className="relative ml-0 mr-auto h-full w-[80vw] max-w-[320px] animate-in slide-in-from-left">
-            {content}
-            <button
-              type="button"
-              onClick={onCloseMobile}
-              className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              aria-label="Close sidebar"
-            >
-              <X className="h-4 w-4" />
-            </button>
+        {!collapsed ? (
+          <Button
+            onClick={onCreate}
+            size="sm"
+            className="mt-2 h-8 w-full gap-1.5 rounded-md bg-foreground text-[11px] font-medium text-background hover:bg-foreground/90"
+          >
+            <Plus className="size-3.5" />
+            New widget
+          </Button>
+        ) : (
+          <SidebarMenuButton
+            onClick={onCreate}
+            tooltip="New widget"
+            className="mt-2 h-8 justify-center rounded-md bg-foreground/[0.06] text-foreground hover:bg-foreground hover:text-background"
+          >
+            <Plus className="size-4" />
+          </SidebarMenuButton>
+        )}
+      </SidebarHeader>
+
+      <SidebarContent className="gap-0">
+        <div className="flex min-h-0 flex-1 flex-col px-2 pt-3">
+          {!collapsed ? (
+            <div className="flex items-center justify-between px-2">
+              <span className="font-mono text-[9px] uppercase tracking-[0.24em] text-muted-foreground/70">
+                Widgets
+              </span>
+              <span className="font-mono text-[9px] tracking-wide text-muted-foreground/60">
+                {items.length}
+              </span>
+            </div>
+          ) : null}
+
+          <div className="mt-1.5 flex min-h-0 flex-1 flex-col overflow-y-auto pr-0.5">
+            {loading && items.length === 0 ? (
+              !collapsed ? (
+                <p className="px-2 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">
+                  Loading
+                </p>
+              ) : (
+                <Loader2 className="mx-auto mt-2 size-3.5 animate-spin text-muted-foreground" />
+              )
+            ) : items.length === 0 && !collapsed ? (
+              <p className="px-2 py-2 text-[12px] leading-relaxed text-muted-foreground/80">
+                No widgets yet. Create one to get started.
+              </p>
+            ) : collapsed ? (
+              <SidebarMenu>
+                {items.map((widget) => {
+                  const isActive = selectedId === widget.id
+                  return (
+                    <SidebarMenuItem key={widget.id}>
+                      <SidebarMenuButton
+                        onClick={() => {
+                          onSelect(widget.id)
+                          closeMobile()
+                        }}
+                        tooltip={widget.name}
+                        className={`relative size-8 justify-center rounded-md ${
+                          isActive
+                            ? "bg-foreground/[0.06]"
+                            : "hover:bg-foreground/[0.04]"
+                        }`}
+                      >
+                        <span
+                          className="size-2 rounded-full"
+                          style={{ background: widget.accent }}
+                          aria-hidden
+                        />
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            ) : (
+              items.map((widget) => {
+                const isActive = selectedId === widget.id
+                return (
+                  <button
+                    key={widget.id}
+                    type="button"
+                    onClick={() => {
+                      onSelect(widget.id)
+                      closeMobile()
+                    }}
+                    className={`group/row relative flex items-start gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors ${
+                      isActive
+                        ? "bg-foreground/[0.06] text-foreground"
+                        : "text-foreground/80 hover:bg-foreground/[0.04] hover:text-foreground"
+                    }`}
+                  >
+                    <span
+                      className="mt-1.5 inline-flex h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{
+                        background: isActive ? widget.accent : `${widget.accent}99`,
+                      }}
+                      aria-hidden
+                    />
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="line-clamp-1 text-[13px] leading-tight">
+                        {widget.name}
+                      </span>
+                      <span className="mt-0.5 inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground/70">
+                        <span>
+                          {widget.responseCount}
+                          {" "}
+                          {widget.responseCount === 1 ? "reply" : "replies"}
+                        </span>
+                        <span className="opacity-50">·</span>
+                        <span>{formatRelative(widget.lastResponseAt)}</span>
+                      </span>
+                    </span>
+                    {isActive ? (
+                      <span
+                        aria-hidden
+                        className="absolute inset-y-2 left-0 w-px bg-foreground"
+                      />
+                    ) : null}
+                  </button>
+                )
+              })
+            )}
           </div>
         </div>
-      ) : null}
-    </>
+      </SidebarContent>
+
+      <SidebarFooter className="gap-1 p-2">
+        {!collapsed ? <ThemeToggle /> : null}
+        <div className="flex flex-col">
+          {collapsed ? (
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Editor"
+                  className="size-8 justify-center"
+                >
+                  <Link href="/" onClick={closeMobile}>
+                    <Settings2 className="size-3.5" />
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          ) : (
+            <>
+              <SidebarLink href="/widget.js" icon={<Code2 className="h-3 w-3" />} label="Widget source" external />
+              <SidebarLink
+                href="https://www.npmjs.com/package/marcko-mcp"
+                icon={<ExternalLink className="h-3 w-3" />}
+                label="MCP package"
+                external
+              />
+              <SidebarLink href="/" icon={<Settings2 className="h-3 w-3" />} label="Editor settings" />
+            </>
+          )}
+        </div>
+      </SidebarFooter>
+
+      <SidebarRail />
+    </AppSidebar>
   )
 }
 
 function ThemeToggle() {
-  const { theme, setTheme, resolvedTheme } = useTheme()
+  const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
   const current = mounted ? theme ?? "system" : "system"
   const options: { value: string; icon: React.ReactNode; label: string }[] = [
-    { value: "light", icon: <Sun className="h-3 w-3" />, label: "Light" },
-    { value: "dark", icon: <Moon className="h-3 w-3" />, label: "Dark" },
-    { value: "system", icon: <Monitor className="h-3 w-3" />, label: "System" },
+    { value: "light", icon: <Sun className="size-3.5" />, label: "Light" },
+    { value: "dark", icon: <Moon className="size-3.5" />, label: "Dark" },
+    { value: "system", icon: <Monitor className="size-3.5" />, label: "System" },
   ]
 
   return (
-    <div className="space-y-1">
-      <span className="eyebrow">Theme</span>
-      <div
-        role="radiogroup"
-        className="grid grid-cols-3 gap-0.5 rounded-full border border-border bg-background/60 p-0.5 text-[11px]"
-      >
-        {options.map((opt) => {
-          const active = current === opt.value
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              aria-label={opt.label}
-              onClick={() => setTheme(opt.value)}
-              className={`inline-flex items-center justify-center gap-1 rounded-full px-2 py-1 transition ${
-                active
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {opt.icon}
-              <span className="hidden sm:inline">{opt.label}</span>
-            </button>
-          )
-        })}
-      </div>
-      {mounted && resolvedTheme && current === "system" ? (
-        <span className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-muted-foreground">
-          using {resolvedTheme}
-        </span>
-      ) : null}
+    <div
+      role="radiogroup"
+      className="flex items-center gap-0.5 rounded-md p-0.5"
+    >
+      {options.map((opt) => {
+        const active = current === opt.value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-label={opt.label}
+            title={opt.label}
+            onClick={() => setTheme(opt.value)}
+            className={`inline-flex h-7 flex-1 items-center justify-center rounded-md transition-colors ${
+              active
+                ? "bg-foreground/[0.08] text-foreground"
+                : "text-muted-foreground/70 hover:bg-foreground/[0.04] hover:text-foreground"
+            }`}
+          >
+            {opt.icon}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -574,11 +633,13 @@ function SidebarLink({
       href={href}
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
-      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] text-muted-foreground transition hover:bg-background/50 hover:text-foreground"
+      className="group/sl flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[11px] text-muted-foreground/80 transition-colors hover:bg-foreground/[0.04] hover:text-foreground"
     >
-      <span>{icon}</span>
+      <span className="text-muted-foreground/60 group-hover/sl:text-foreground">{icon}</span>
       <span className="flex-1 truncate">{label}</span>
-      {external ? <ExternalLink className="h-3 w-3 opacity-60" /> : null}
+      {external ? (
+        <ExternalLink className="h-3 w-3 opacity-0 transition-opacity group-hover/sl:opacity-60" />
+      ) : null}
     </Link>
   )
 }
@@ -1072,6 +1133,19 @@ function EmbedPanel({ origin, publicKey }: { origin: string; publicKey: string }
   type EmbedKind = "hosted" | "manual" | "custom" | "react"
   const [kind, setKind] = useState<EmbedKind>("hosted")
   const [copied, setCopied] = useState<EmbedKind | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
+  const directLink = `${origin}/feedback/${publicKey}`
+
+  const copyDirectLink = async () => {
+    const ok = await copyTextToClipboard(directLink)
+    if (ok) {
+      setLinkCopied(true)
+      toast.success("Link copied")
+      setTimeout(() => setLinkCopied(false), 1500)
+    } else {
+      toast.error("Copy failed")
+    }
+  }
 
   const snippets: Record<EmbedKind, { title: string; description: string; code: string }> = {
     hosted: {
@@ -1115,6 +1189,49 @@ function EmbedPanel({ origin, publicKey }: { origin: string; publicKey: string }
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
+      <PanelSection
+        title="Direct link"
+        description="A standalone hosted form. Share the URL anywhere — email signatures, DMs, footers — no embed required."
+      >
+        <div className="group/link flex items-center gap-2 rounded-md bg-foreground/[0.04] px-3 py-2 transition-colors hover:bg-foreground/[0.06]">
+          <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
+          <a
+            href={directLink}
+            target="_blank"
+            rel="noreferrer"
+            className="min-w-0 flex-1 truncate font-mono text-[12px] text-foreground/90 transition-colors hover:text-foreground"
+          >
+            {directLink}
+          </a>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+            onClick={copyDirectLink}
+          >
+            {linkCopied ? (
+              <>
+                <Check className="size-3" /> Copied
+              </>
+            ) : (
+              <>
+                <Copy className="size-3" /> Copy
+              </>
+            )}
+          </Button>
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            <a href={directLink} target="_blank" rel="noreferrer">
+              <ExternalLink className="size-3" /> Open
+            </a>
+          </Button>
+        </div>
+      </PanelSection>
+
       <PanelSection
         title="Embed"
         description="Pick a delivery style. Backend, snippet, and behavior are identical — only the integration shape changes."
