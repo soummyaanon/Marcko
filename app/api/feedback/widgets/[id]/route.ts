@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { auth, ensureAuthSchema } from "@/lib/auth"
+import { resolveAuthUser } from "@/lib/api-keys"
 import {
   deleteFeedbackWidget,
   getFeedbackWidgetForOwner,
@@ -11,10 +11,9 @@ import {
 
 export const runtime = "nodejs"
 
-const sessionUser = async (request: NextRequest) => {
-  await ensureAuthSchema()
-  const session = await auth.api.getSession({ headers: request.headers })
-  return session?.user?.id ?? null
+const resolveUser = async (request: NextRequest) => {
+  const resolved = await resolveAuthUser(request)
+  return resolved?.userId ?? null
 }
 
 const authRequired = () =>
@@ -31,7 +30,7 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const userId = await sessionUser(request)
+  const userId = await resolveUser(request)
   if (!userId) return authRequired()
 
   const { id } = await context.params
@@ -52,7 +51,7 @@ export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const userId = await sessionUser(request)
+  const userId = await resolveUser(request)
   if (!userId) return authRequired()
 
   const { id } = await context.params
@@ -62,6 +61,8 @@ export async function PATCH(
         questions?: unknown
         triggerLabel?: unknown
         accent?: unknown
+        collectName?: unknown
+        nameRequired?: unknown
       }
     | null
   try {
@@ -80,6 +81,8 @@ export async function PATCH(
         : undefined,
       triggerLabel: typeof body?.triggerLabel === "string" ? body.triggerLabel : undefined,
       accent: typeof body?.accent === "string" ? body.accent : undefined,
+      collectName: typeof body?.collectName === "boolean" ? body.collectName : undefined,
+      nameRequired: typeof body?.nameRequired === "boolean" ? body.nameRequired : undefined,
     })
     if (!updated) {
       return NextResponse.json({ message: "Widget not found" }, { status: 404 })
@@ -95,7 +98,7 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const userId = await sessionUser(request)
+  const userId = await resolveUser(request)
   if (!userId) return authRequired()
 
   const { id } = await context.params

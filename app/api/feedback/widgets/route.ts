@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { auth, ensureAuthSchema } from "@/lib/auth"
+import { resolveAuthUser } from "@/lib/api-keys"
 import {
   createFeedbackWidget,
   listFeedbackWidgets,
@@ -9,10 +9,9 @@ import {
 
 export const runtime = "nodejs"
 
-const sessionUser = async (request: NextRequest) => {
-  await ensureAuthSchema()
-  const session = await auth.api.getSession({ headers: request.headers })
-  return session?.user?.id ?? null
+const resolveUser = async (request: NextRequest) => {
+  const resolved = await resolveAuthUser(request)
+  return resolved?.userId ?? null
 }
 
 const authRequired = () =>
@@ -26,7 +25,7 @@ const authRequired = () =>
   )
 
 export async function GET(request: NextRequest) {
-  const userId = await sessionUser(request)
+  const userId = await resolveUser(request)
   if (!userId) return authRequired()
   try {
     const items = await listFeedbackWidgets(userId)
@@ -38,10 +37,17 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const userId = await sessionUser(request)
+  const userId = await resolveUser(request)
   if (!userId) return authRequired()
 
-  let body: { name?: unknown; questions?: unknown; triggerLabel?: unknown; accent?: unknown } | null
+  let body: {
+    name?: unknown
+    questions?: unknown
+    triggerLabel?: unknown
+    accent?: unknown
+    collectName?: unknown
+    nameRequired?: unknown
+  } | null
   try {
     body = (await request.json()) as typeof body
   } catch {
@@ -54,9 +60,19 @@ export async function POST(request: NextRequest) {
     : undefined
   const triggerLabel = typeof body?.triggerLabel === "string" ? body.triggerLabel : undefined
   const accent = typeof body?.accent === "string" ? body.accent : undefined
+  const collectName = typeof body?.collectName === "boolean" ? body.collectName : undefined
+  const nameRequired = typeof body?.nameRequired === "boolean" ? body.nameRequired : undefined
 
   try {
-    const widget = await createFeedbackWidget({ userId, name, questions, triggerLabel, accent })
+    const widget = await createFeedbackWidget({
+      userId,
+      name,
+      questions,
+      triggerLabel,
+      accent,
+      collectName,
+      nameRequired,
+    })
     return NextResponse.json(widget)
   } catch (error) {
     console.error("[feedback/widgets] create failed", error)

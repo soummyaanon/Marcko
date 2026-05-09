@@ -51,6 +51,7 @@ export async function POST(
   let body:
     | {
         answers?: unknown
+        submitterName?: unknown
         pageUrl?: unknown
       }
     | null
@@ -60,11 +61,27 @@ export async function POST(
     return withCors(NextResponse.json({ message: "Invalid JSON" }, { status: 400 }))
   }
 
+  let submitterName: string | null = null
+  if (widget.collectName) {
+    const raw = typeof body?.submitterName === "string" ? body.submitterName.trim() : ""
+    if (widget.nameRequired && raw.length === 0) {
+      return withCors(
+        NextResponse.json({ message: "Please share your name." }, { status: 400 }),
+      )
+    }
+    if (raw.length > 120) {
+      return withCors(
+        NextResponse.json({ message: "Name is too long." }, { status: 400 }),
+      )
+    }
+    submitterName = raw.length > 0 ? raw : null
+  }
+
   const sanitized = sanitizeAnswers(widget.questions, body?.answers)
   if (!sanitized.ok) {
     return withCors(NextResponse.json({ message: sanitized.reason }, { status: 400 }))
   }
-  if (Object.keys(sanitized.answers).length === 0) {
+  if (Object.keys(sanitized.answers).length === 0 && !submitterName) {
     return withCors(
       NextResponse.json({ message: "No answers provided" }, { status: 400 }),
     )
@@ -95,6 +112,7 @@ export async function POST(
     await recordFeedbackResponse({
       widgetId: widget.id,
       answers: sanitized.answers,
+      submitterName,
       pageUrl,
       userAgent,
       ipHash,

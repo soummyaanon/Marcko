@@ -80,6 +80,8 @@ export type FeedbackWidgetRow = {
   questions: FeedbackQuestion[]
   triggerLabel: string
   accent: string
+  collectName: boolean
+  nameRequired: boolean
   createdAt: string
   updatedAt: string
 }
@@ -93,6 +95,7 @@ export type FeedbackResponseRow = {
   id: string
   widgetId: string
   answers: Record<string, unknown>
+  submitterName: string | null
   pageUrl: string | null
   userAgent: string | null
   submittedAt: string
@@ -112,10 +115,18 @@ export const ensureFeedbackSchema = async (): Promise<void> => {
           questions JSONB NOT NULL DEFAULT '[]'::jsonb,
           trigger_label TEXT NOT NULL DEFAULT 'Feedback',
           accent TEXT NOT NULL DEFAULT '#111111',
+          collect_name BOOLEAN NOT NULL DEFAULT TRUE,
+          name_required BOOLEAN NOT NULL DEFAULT TRUE,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `)
+      await authDbPool.query(
+        `ALTER TABLE feedback_widgets ADD COLUMN IF NOT EXISTS collect_name BOOLEAN NOT NULL DEFAULT TRUE;`,
+      )
+      await authDbPool.query(
+        `ALTER TABLE feedback_widgets ADD COLUMN IF NOT EXISTS name_required BOOLEAN NOT NULL DEFAULT TRUE;`,
+      )
       await authDbPool.query(
         `CREATE INDEX IF NOT EXISTS idx_feedback_widgets_user ON feedback_widgets (user_id, created_at DESC);`,
       )
@@ -125,12 +136,16 @@ export const ensureFeedbackSchema = async (): Promise<void> => {
           id TEXT PRIMARY KEY,
           widget_id TEXT NOT NULL REFERENCES feedback_widgets(id) ON DELETE CASCADE,
           answers JSONB NOT NULL DEFAULT '{}'::jsonb,
+          submitter_name TEXT,
           page_url TEXT,
           user_agent TEXT,
           ip_hash TEXT,
           submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `)
+      await authDbPool.query(
+        `ALTER TABLE feedback_responses ADD COLUMN IF NOT EXISTS submitter_name TEXT;`,
+      )
       await authDbPool.query(
         `CREATE INDEX IF NOT EXISTS idx_feedback_responses_widget ON feedback_responses (widget_id, submitted_at DESC);`,
       )
@@ -159,6 +174,8 @@ const rowToWidget = (row: Record<string, unknown>): FeedbackWidgetRow => ({
   questions: sanitizeQuestions(row.questions ?? []),
   triggerLabel: typeof row.trigger_label === "string" ? row.trigger_label : "Feedback",
   accent: sanitizeAccent(row.accent),
+  collectName: row.collect_name === false ? false : true,
+  nameRequired: row.name_required === false ? false : true,
   createdAt: toIso(row.created_at),
   updatedAt: toIso(row.updated_at),
 })
@@ -169,6 +186,8 @@ export const createFeedbackWidget = async (args: {
   questions?: FeedbackQuestion[]
   triggerLabel?: string
   accent?: string
+  collectName?: boolean
+  nameRequired?: boolean
 }): Promise<FeedbackWidgetRow> => {
   await ensureFeedbackSchema()
   const id = generateWidgetId()
@@ -180,14 +199,28 @@ export const createFeedbackWidget = async (args: {
       ? args.triggerLabel.trim().slice(0, 40)
       : "Feedback"
   const accent = sanitizeAccent(args.accent)
+  const collectName = args.collectName === false ? false : true
+  const nameRequired = args.nameRequired === false ? false : true
 
   const result = await authDbPool.query(
     `
-    INSERT INTO feedback_widgets (id, user_id, public_key, name, questions, trigger_label, accent)
-    VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)
-    RETURNING id, public_key, name, questions, trigger_label, accent, created_at, updated_at
+    INSERT INTO feedback_widgets
+      (id, user_id, public_key, name, questions, trigger_label, accent, collect_name, name_required)
+    VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
+    RETURNING id, public_key, name, questions, trigger_label, accent,
+              collect_name, name_required, created_at, updated_at
     `,
-    [id, args.userId, publicKey, name, JSON.stringify(questions), triggerLabel, accent],
+    [
+      id,
+      args.userId,
+      publicKey,
+      name,
+      JSON.stringify(questions),
+      triggerLabel,
+      accent,
+      collectName,
+      nameRequired,
+    ],
   )
   return rowToWidget(result.rows[0])
 }
@@ -198,7 +231,8 @@ export const listFeedbackWidgets = async (
   await ensureFeedbackSchema()
   const result = await authDbPool.query(
     `
-    SELECT w.id, w.public_key, w.name, w.questions, w.trigger_label, w.accent, w.created_at, w.updated_at,
+    SELECT w.id, w.public_key, w.name, w.questions, w.trigger_label, w.accent,
+           w.collect_name, w.name_required, w.created_at, w.updated_at,
            COALESCE(r.count, 0)::int AS response_count,
            r.last_at AS last_response_at
     FROM feedback_widgets w
@@ -226,7 +260,8 @@ export const getFeedbackWidgetForOwner = async (
   await ensureFeedbackSchema()
   const result = await authDbPool.query(
     `
-    SELECT id, public_key, name, questions, trigger_label, accent, created_at, updated_at
+    SELECT id, public_key, name, questions, trigger_label, accent,
+           collect_name, name_required, created_at, updated_at
     FROM feedback_widgets
     WHERE id = $1 AND user_id = $2
     LIMIT 1
@@ -243,7 +278,8 @@ export const getFeedbackWidgetByPublicKey = async (
   await ensureFeedbackSchema()
   const result = await authDbPool.query(
     `
-    SELECT id, public_key, name, questions, trigger_label, accent, created_at, updated_at
+    SELECT id, public_key, name, questions, trigger_label, accent,
+           collect_name, name_required, created_at, updated_at
     FROM feedback_widgets
     WHERE public_key = $1
     LIMIT 1
@@ -261,6 +297,8 @@ export const updateFeedbackWidget = async (args: {
   questions?: FeedbackQuestion[]
   triggerLabel?: string
   accent?: string
+  collectName?: boolean
+  nameRequired?: boolean
 }): Promise<FeedbackWidgetRow | null> => {
   await ensureFeedbackSchema()
   const sets: string[] = []
@@ -283,6 +321,14 @@ export const updateFeedbackWidget = async (args: {
     sets.push(`accent = $${p++}`)
     values.push(sanitizeAccent(args.accent))
   }
+  if (typeof args.collectName === "boolean") {
+    sets.push(`collect_name = $${p++}`)
+    values.push(args.collectName)
+  }
+  if (typeof args.nameRequired === "boolean") {
+    sets.push(`name_required = $${p++}`)
+    values.push(args.nameRequired)
+  }
   if (sets.length === 0) {
     return getFeedbackWidgetForOwner(args.userId, args.widgetId)
   }
@@ -294,7 +340,8 @@ export const updateFeedbackWidget = async (args: {
     UPDATE feedback_widgets
     SET ${sets.join(", ")}
     WHERE id = $${p++} AND user_id = $${p++}
-    RETURNING id, public_key, name, questions, trigger_label, accent, created_at, updated_at
+    RETURNING id, public_key, name, questions, trigger_label, accent,
+              collect_name, name_required, created_at, updated_at
     `,
     values,
   )
@@ -323,7 +370,7 @@ export const listFeedbackResponses = async (args: {
   const limit = Math.min(Math.max(args.limit ?? 100, 1), 500)
   const result = await authDbPool.query(
     `
-    SELECT r.id, r.widget_id, r.answers, r.page_url, r.user_agent, r.submitted_at
+    SELECT r.id, r.widget_id, r.answers, r.submitter_name, r.page_url, r.user_agent, r.submitted_at
     FROM feedback_responses r
     INNER JOIN feedback_widgets w ON w.id = r.widget_id
     WHERE r.widget_id = $1 AND w.user_id = $2
@@ -336,6 +383,7 @@ export const listFeedbackResponses = async (args: {
     id: String(row.id),
     widgetId: String(row.widget_id),
     answers: (row.answers ?? {}) as Record<string, unknown>,
+    submitterName: row.submitter_name ? String(row.submitter_name) : null,
     pageUrl: row.page_url ? String(row.page_url) : null,
     userAgent: row.user_agent ? String(row.user_agent) : null,
     submittedAt: toIso(row.submitted_at),
@@ -364,22 +412,29 @@ export const isRateLimited = async (args: {
 export const recordFeedbackResponse = async (args: {
   widgetId: string
   answers: Record<string, unknown>
+  submitterName?: string | null
   pageUrl?: string | null
   userAgent?: string | null
   ipHash?: string | null
 }): Promise<FeedbackResponseRow> => {
   await ensureFeedbackSchema()
   const id = toBase64Url(randomBytes(12))
+  const submitterName =
+    typeof args.submitterName === "string" && args.submitterName.trim().length > 0
+      ? args.submitterName.trim().slice(0, 120)
+      : null
   const result = await authDbPool.query(
     `
-    INSERT INTO feedback_responses (id, widget_id, answers, page_url, user_agent, ip_hash)
-    VALUES ($1, $2, $3::jsonb, $4, $5, $6)
-    RETURNING id, widget_id, answers, page_url, user_agent, submitted_at
+    INSERT INTO feedback_responses
+      (id, widget_id, answers, submitter_name, page_url, user_agent, ip_hash)
+    VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7)
+    RETURNING id, widget_id, answers, submitter_name, page_url, user_agent, submitted_at
     `,
     [
       id,
       args.widgetId,
       JSON.stringify(args.answers ?? {}),
+      submitterName,
       args.pageUrl ? String(args.pageUrl).slice(0, 500) : null,
       args.userAgent ? String(args.userAgent).slice(0, 400) : null,
       args.ipHash ?? null,
@@ -390,6 +445,7 @@ export const recordFeedbackResponse = async (args: {
     id: String(row.id),
     widgetId: String(row.widget_id),
     answers: (row.answers ?? {}) as Record<string, unknown>,
+    submitterName: row.submitter_name ? String(row.submitter_name) : null,
     pageUrl: row.page_url ? String(row.page_url) : null,
     userAgent: row.user_agent ? String(row.user_agent) : null,
     submittedAt: toIso(row.submitted_at),

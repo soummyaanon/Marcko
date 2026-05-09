@@ -8,6 +8,7 @@ import {
 import { z } from "zod"
 
 const DEFAULT_BASE_URL = "https://marcko.bixai.dev"
+const VERSION = "0.2.0"
 
 const env = (key: string): string | undefined => {
   const value = process.env[key]
@@ -18,47 +19,11 @@ const apiKey = env("MARCKO_API_KEY")
 const baseUrl = (env("MARCKO_BASE_URL") ?? DEFAULT_BASE_URL).replace(/\/$/, "")
 
 if (!apiKey) {
-  // We still start the server so Claude Desktop reports a clean handshake,
-  // but every tool call will return an actionable error.
   console.error(
     "[marcko-mcp] MARCKO_API_KEY is not set. Generate one at " +
-      `${baseUrl}/ → Account → Connect Claude Desktop, then add it to your MCP config.`,
+      `${baseUrl}/ → Account → Connect AI agents, then add it to your MCP config.`,
   )
 }
-
-const PublishInput = z.object({
-  content: z
-    .string()
-    .min(1, "content cannot be empty")
-    .describe(
-      "The full markdown (or HTML/CSS/JS in fenced blocks) to publish to Marcko.",
-    ),
-  title: z
-    .string()
-    .trim()
-    .min(1)
-    .max(160)
-    .optional()
-    .describe(
-      "Optional document title. Marcko derives a preview from content; this is currently informational.",
-    ),
-  visibility: z
-    .enum(["public", "private"])
-    .default("public")
-    .describe(
-      "`public` = anyone with the link can view. `private` = only signed-in Marcko users with the link.",
-    ),
-})
-
-type PublishInput = z.infer<typeof PublishInput>
-
-const PublishResponse = z.object({
-  id: z.string().min(1),
-  shareUrl: z.string().url(),
-  visibility: z.enum(["public", "private"]),
-})
-
-type PublishResponse = z.infer<typeof PublishResponse>
 
 const tryParseJson = (text: string): unknown => {
   try {
@@ -71,26 +36,29 @@ const tryParseJson = (text: string): unknown => {
 const truncate = (text: string, max = 240): string =>
   text.length > max ? `${text.slice(0, max)}…` : text
 
-const publishToMarcko = async (input: PublishInput): Promise<PublishResponse> => {
+type FetchInit = {
+  method?: "GET" | "POST" | "PATCH" | "DELETE"
+  body?: unknown
+}
+
+const apiFetch = async <T>(
+  path: string,
+  init: FetchInit,
+  schema: z.ZodType<T>,
+): Promise<T> => {
   if (!apiKey) {
     throw new Error(
-      "MARCKO_API_KEY is not configured for this MCP server. " +
-        "Open Marcko → Account menu → Connect Claude Desktop to generate one.",
+      "MARCKO_API_KEY is not configured. Open Marcko → Account → Connect AI agents to generate one.",
     )
   }
-
-  const response = await fetch(`${baseUrl}/api/share`, {
-    method: "POST",
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: init.method ?? "GET",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${apiKey}`,
-      "user-agent": "marcko-mcp/0.1.0",
+      "user-agent": `marcko-mcp/${VERSION}`,
     },
-    body: JSON.stringify({
-      content: input.content,
-      title: input.title,
-      visibility: input.visibility,
-    }),
+    body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
   })
 
   const rawBody = await response.text()
@@ -110,25 +78,194 @@ const publishToMarcko = async (input: PublishInput): Promise<PublishResponse> =>
     throw new Error(`Marcko returned HTTP ${response.status}${snippet}`)
   }
 
-  const validated = PublishResponse.safeParse(parsed)
+  const validated = schema.safeParse(parsed)
   if (!validated.success) {
-    throw new Error(
-      `Marcko returned an unexpected response shape: ${truncate(rawBody)}`,
-    )
+    throw new Error(`Marcko returned an unexpected response shape: ${truncate(rawBody)}`)
   }
   return validated.data
 }
 
-const server = new Server(
-  {
-    name: "marcko-mcp",
-    version: "0.1.0",
-  },
-  {
-    capabilities: {
-      tools: {},
+// ---------- publish_to_marcko (existing) ----------
+
+const PublishInput = z.object({
+  content: z.string().min(1, "content cannot be empty"),
+  title: z.string().trim().min(1).max(160).optional(),
+  visibility: z.enum(["public", "private"]).default("public"),
+})
+type PublishInput = z.infer<typeof PublishInput>
+
+const PublishResponse = z.object({
+  id: z.string().min(1),
+  shareUrl: z.string().url(),
+  visibility: z.enum(["public", "private"]),
+})
+
+const publishToMarcko = (input: PublishInput) =>
+  apiFetch(
+    "/api/share",
+    {
+      method: "POST",
+      body: { content: input.content, title: input.title, visibility: input.visibility },
     },
-  },
+    PublishResponse,
+  )
+
+// ---------- feedback widgets ----------
+
+const QuestionSchema = z.object({
+  id: z.string().optional(),
+  type: z.enum(["short_text", "long_text", "rating", "single_choice"]),
+  label: z.string().min(1).max(240),
+  required: z.boolean().optional(),
+  placeholder: z.string().max(160).optional(),
+  options: z.array(z.string().min(1).max(60)).max(8).optional(),
+})
+
+const WidgetBase = z.object({
+  id: z.string(),
+  publicKey: z.string(),
+  name: z.string(),
+  triggerLabel: z.string(),
+  accent: z.string(),
+  questions: z.array(QuestionSchema),
+  collectName: z.boolean(),
+  nameRequired: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+const WidgetWithCounts = WidgetBase.extend({
+  responseCount: z.number(),
+  lastResponseAt: z.string().nullable(),
+})
+
+const WidgetListResponse = z.object({ items: z.array(WidgetWithCounts) })
+
+const WidgetDetailResponse = z.object({
+  widget: WidgetBase,
+  responses: z.array(
+    z.object({
+      id: z.string(),
+      widgetId: z.string(),
+      answers: z.record(z.unknown()),
+      submitterName: z.string().nullable(),
+      pageUrl: z.string().nullable(),
+      userAgent: z.string().nullable(),
+      submittedAt: z.string(),
+    }),
+  ),
+})
+
+const ListFeedbackInput = z.object({})
+const listFeedbackWidgets = () =>
+  apiFetch("/api/feedback/widgets", { method: "GET" }, WidgetListResponse)
+
+const CreateFeedbackInput = z.object({
+  name: z.string().min(1).max(80).describe("Internal name for the widget."),
+  triggerLabel: z
+    .string()
+    .min(1)
+    .max(40)
+    .optional()
+    .describe('End-user-visible button label. Defaults to "Feedback".'),
+  accent: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional()
+    .describe("Accent color in #RRGGBB. Defaults to #111111."),
+  questions: z
+    .array(QuestionSchema.omit({ id: true }))
+    .max(12)
+    .optional()
+    .describe(
+      "Questions to ask. Types: short_text, long_text, rating (1–5 stars), single_choice (with options). " +
+        "If omitted, a sensible default (rating + comment) is used. Always confirm with the user what they want.",
+    ),
+  collectName: z
+    .boolean()
+    .optional()
+    .describe('Show a "Your name" field at the top of the dialog. Defaults to true.'),
+  nameRequired: z
+    .boolean()
+    .optional()
+    .describe("Whether the name field is required. Defaults to true."),
+})
+
+const createFeedback = (input: z.infer<typeof CreateFeedbackInput>) =>
+  apiFetch("/api/feedback/widgets", { method: "POST", body: input }, WidgetBase)
+
+const GetEmbedInput = z.object({
+  id: z.string().describe("Widget id from create_feedback_widget or list_feedback_widgets."),
+  format: z
+    .enum(["hosted", "manual", "custom", "react", "all"])
+    .default("hosted")
+    .describe(
+      "hosted = single <script> tag; manual = inline injector for Electron / strict CSP; " +
+        "custom = bring-your-own-button via [data-marcko-feedback]; react = useEffect wrapper; all = return every variant.",
+    ),
+})
+
+const buildSnippets = (origin: string, key: string) => ({
+  hosted: `<script src="${origin}/widget.js" data-key="${key}"></script>`,
+  manual: `<!-- Marcko Feedback (Electron / strict CSP) -->
+<script>
+  (function(){var s=document.createElement('script');s.src='${origin}/widget.js';s.async=true;s.dataset.key='${key}';document.body.appendChild(s);})();
+</script>`,
+  custom: `<!-- Suppress floating button; trigger from your own UI -->
+<script src="${origin}/widget.js" data-key="${key}" data-trigger="custom"></script>
+
+<!-- Click-to-open: any element with this attribute -->
+<button data-marcko-feedback>Send feedback</button>
+
+<!-- Or programmatically -->
+<script>
+  window.MarckoFeedback.open()
+  window.addEventListener('marcko:submit', e => console.log(e.detail))
+</script>`,
+  react: `// components/MarckoFeedback.tsx
+"use client"
+import { useEffect } from "react"
+
+export function MarckoFeedback() {
+  useEffect(() => {
+    if (document.querySelector('script[data-marcko-feedback-loader]')) return
+    const s = document.createElement("script")
+    s.src = "${origin}/widget.js"
+    s.async = true
+    s.dataset.key = "${key}"
+    s.dataset.marckoFeedbackLoader = "1"
+    document.body.appendChild(s)
+  }, [])
+  return null
+}
+
+// app/layout.tsx — render once, anywhere
+// <MarckoFeedback />`,
+})
+
+const ListResponsesInput = z.object({
+  id: z.string().describe("Widget id."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum number of responses to return. Defaults to 25."),
+})
+
+const listFeedbackResponses = (id: string) =>
+  apiFetch(
+    `/api/feedback/widgets/${encodeURIComponent(id)}`,
+    { method: "GET" },
+    WidgetDetailResponse,
+  )
+
+// ---------- server ----------
+
+const server = new Server(
+  { name: "marcko-mcp", version: VERSION },
+  { capabilities: { tools: {} } },
 )
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -137,88 +274,232 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       name: "publish_to_marcko",
       description:
         "Publish a markdown (or HTML/CSS/JS-in-fence) document to the user's Marcko library. " +
-        "Returns the share URL the user can paste anywhere. Use this whenever the user asks to " +
-        "'send to Marcko', 'publish to Marcko', 'share this draft', or wants a permanent share URL.",
+        "Returns the share URL. Use whenever the user asks to 'send to Marcko', 'publish to Marcko', or wants a permanent share URL.",
       inputSchema: {
         type: "object",
         properties: {
-          content: {
-            type: "string",
-            description:
-              "The full markdown (or HTML/CSS/JS in fenced blocks) to publish to Marcko.",
-            minLength: 1,
-          },
-          title: {
-            type: "string",
-            description:
-              "Optional document title. Currently informational; Marcko derives a preview from content.",
-            maxLength: 160,
-          },
-          visibility: {
-            type: "string",
-            enum: ["public", "private"],
-            description:
-              "'public' = anyone with the link can view. 'private' = only signed-in Marcko users with the link. Default: public.",
-            default: "public",
-          },
+          content: { type: "string", minLength: 1 },
+          title: { type: "string", maxLength: 160 },
+          visibility: { type: "string", enum: ["public", "private"], default: "public" },
         },
         required: ["content"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "list_feedback_widgets",
+      description:
+        "List the user's Marcko Feedback widgets — names, public keys, response counts, last activity. " +
+        "Use to check what's already configured before creating something new.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    },
+    {
+      name: "create_feedback_widget",
+      description:
+        "Create a new Marcko Feedback widget. ALWAYS ask the user first what kind of feedback they want to collect — " +
+        "rating, free-form comment, multiple-choice, etc. — and what to label each question. " +
+        "Returns the widget with its publicKey; pair this with get_feedback_embed to give the user a snippet to paste, " +
+        "or paste it directly into their app code if they prefer.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 80 },
+          triggerLabel: { type: "string", minLength: 1, maxLength: 40 },
+          accent: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+          questions: {
+            type: "array",
+            maxItems: 12,
+            items: {
+              type: "object",
+              properties: {
+                type: {
+                  type: "string",
+                  enum: ["short_text", "long_text", "rating", "single_choice"],
+                },
+                label: { type: "string", minLength: 1, maxLength: 240 },
+                required: { type: "boolean" },
+                placeholder: { type: "string", maxLength: 160 },
+                options: {
+                  type: "array",
+                  items: { type: "string", minLength: 1, maxLength: 60 },
+                  maxItems: 8,
+                },
+              },
+              required: ["type", "label"],
+              additionalProperties: false,
+            },
+          },
+          collectName: { type: "boolean", default: true },
+          nameRequired: { type: "boolean", default: true },
+        },
+        required: ["name"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "get_feedback_embed",
+      description:
+        "Get the embed snippet(s) for a feedback widget. Use after create_feedback_widget — " +
+        "either show the snippet to the user OR (if you have file-edit access in this client) drop it into their app yourself. " +
+        "Choose 'react' for Next.js/React apps, 'manual' for Electron / strict CSP, 'custom' to attach to an existing button, " +
+        "'hosted' for a plain <script> tag, or 'all' to compare.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          format: {
+            type: "string",
+            enum: ["hosted", "manual", "custom", "react", "all"],
+            default: "hosted",
+          },
+        },
+        required: ["id"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "list_feedback_responses",
+      description:
+        "Read recent responses for a feedback widget. Surfaces submitter name (when collected), each answer, page URL, and submission time.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          limit: { type: "number", minimum: 1, maximum: 100 },
+        },
+        required: ["id"],
         additionalProperties: false,
       },
     },
   ],
 }))
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  if (request.params.name !== "publish_to_marcko") {
-    throw new Error(`Unknown tool: ${request.params.name}`)
-  }
+const errorResult = (message: string) => ({
+  isError: true,
+  content: [{ type: "text" as const, text: message }],
+})
 
-  const parsed = PublishInput.safeParse(request.params.arguments ?? {})
-  if (!parsed.success) {
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text",
-          text: `Invalid arguments: ${parsed.error.issues
-            .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
-            .join("; ")}`,
-        },
-      ],
-    }
-  }
+const okText = (text: string) => ({
+  content: [{ type: "text" as const, text }],
+})
+
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const name = request.params.name
+  const args = request.params.arguments ?? {}
 
   try {
-    const result = await publishToMarcko(parsed.data)
-    return {
-      content: [
-        {
-          type: "text",
-          text:
-            `Published to Marcko (${result.visibility}).\n` +
-            `Share URL: ${result.shareUrl}`,
-        },
-      ],
+    if (name === "publish_to_marcko") {
+      const parsed = PublishInput.safeParse(args)
+      if (!parsed.success) return errorResult(`Invalid arguments: ${parsed.error.message}`)
+      const result = await publishToMarcko(parsed.data)
+      return okText(
+        `Published to Marcko (${result.visibility}).\nShare URL: ${result.shareUrl}`,
+      )
     }
+
+    if (name === "list_feedback_widgets") {
+      ListFeedbackInput.parse(args)
+      const { items } = await listFeedbackWidgets()
+      if (items.length === 0) {
+        return okText(
+          "No feedback widgets yet. Use create_feedback_widget to make one.",
+        )
+      }
+      const lines = items.map((w) => {
+        const last = w.lastResponseAt ? new Date(w.lastResponseAt).toISOString() : "never"
+        return `- ${w.name} (id: ${w.id}, key: ${w.publicKey}) · ${w.responseCount} responses · last: ${last}`
+      })
+      return okText(`Found ${items.length} widget(s):\n${lines.join("\n")}`)
+    }
+
+    if (name === "create_feedback_widget") {
+      const parsed = CreateFeedbackInput.safeParse(args)
+      if (!parsed.success) return errorResult(`Invalid arguments: ${parsed.error.message}`)
+      const widget = await createFeedback(parsed.data)
+      const snippets = buildSnippets(baseUrl, widget.publicKey)
+      return okText(
+        [
+          `Created widget "${widget.name}".`,
+          `id: ${widget.id}`,
+          `publicKey: ${widget.publicKey}`,
+          `questions: ${widget.questions.length}`,
+          `collectName: ${widget.collectName} (required: ${widget.nameRequired})`,
+          ``,
+          `Drop this snippet into the user's app:`,
+          ``,
+          snippets.hosted,
+          ``,
+          `Other formats available via get_feedback_embed (react, manual, custom).`,
+        ].join("\n"),
+      )
+    }
+
+    if (name === "get_feedback_embed") {
+      const parsed = GetEmbedInput.safeParse(args)
+      if (!parsed.success) return errorResult(`Invalid arguments: ${parsed.error.message}`)
+      // Resolve publicKey from id by reading the widget detail
+      const detail = await listFeedbackResponses(parsed.data.id)
+      const snippets = buildSnippets(baseUrl, detail.widget.publicKey)
+      if (parsed.data.format === "all") {
+        return okText(
+          [
+            `Embed snippets for "${detail.widget.name}" (key: ${detail.widget.publicKey}):`,
+            ``,
+            `--- hosted ---`,
+            snippets.hosted,
+            ``,
+            `--- manual (Electron / strict CSP) ---`,
+            snippets.manual,
+            ``,
+            `--- custom (your own trigger) ---`,
+            snippets.custom,
+            ``,
+            `--- react ---`,
+            snippets.react,
+          ].join("\n"),
+        )
+      }
+      return okText(snippets[parsed.data.format])
+    }
+
+    if (name === "list_feedback_responses") {
+      const parsed = ListResponsesInput.safeParse(args)
+      if (!parsed.success) return errorResult(`Invalid arguments: ${parsed.error.message}`)
+      const detail = await listFeedbackResponses(parsed.data.id)
+      const limit = parsed.data.limit ?? 25
+      const items = detail.responses.slice(0, limit)
+      if (items.length === 0) {
+        return okText(`No responses yet for "${detail.widget.name}".`)
+      }
+      const formatted = items.map((r) => {
+        const who = r.submitterName ? r.submitterName : "anonymous"
+        const when = new Date(r.submittedAt).toISOString()
+        const answers = Object.entries(r.answers)
+          .map(([qid, value]) => {
+            const q = detail.widget.questions.find((q) => q.id === qid)
+            const label = q?.label ?? qid
+            return `    - ${label}: ${typeof value === "string" ? value : JSON.stringify(value)}`
+          })
+          .join("\n")
+        const page = r.pageUrl ? `\n    page: ${r.pageUrl}` : ""
+        return `· ${who} · ${when}${page}\n${answers}`
+      })
+      return okText(
+        `Recent responses for "${detail.widget.name}" (showing ${items.length} of ${detail.responses.length}):\n\n${formatted.join("\n\n")}`,
+      )
+    }
+
+    return errorResult(`Unknown tool: ${name}`)
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error"
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text",
-          text: `Failed to publish to Marcko: ${message}`,
-        },
-      ],
-    }
+    return errorResult(`Tool ${name} failed: ${message}`)
   }
 })
 
 const main = async () => {
   const transport = new StdioServerTransport()
   await server.connect(transport)
-  console.error(`[marcko-mcp] connected · base=${baseUrl}`)
+  console.error(`[marcko-mcp] connected · version=${VERSION} · base=${baseUrl}`)
 }
 
 main().catch((error) => {

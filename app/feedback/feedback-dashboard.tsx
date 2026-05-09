@@ -47,6 +47,8 @@ type WidgetSummary = {
   triggerLabel: string
   accent: string
   questions: FeedbackQuestion[]
+  collectName: boolean
+  nameRequired: boolean
   createdAt: string
   updatedAt: string
   responseCount: number
@@ -57,6 +59,7 @@ type ResponseRow = {
   id: string
   widgetId: string
   answers: Record<string, unknown>
+  submitterName: string | null
   pageUrl: string | null
   userAgent: string | null
   submittedAt: string
@@ -523,6 +526,38 @@ function ThemeToggle() {
   )
 }
 
+function Toggle({
+  checked,
+  onChange,
+  ariaLabel,
+  disabled,
+}: {
+  checked: boolean
+  onChange: (next: boolean) => void
+  ariaLabel: string
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition ${
+        checked ? "bg-foreground" : "bg-muted"
+      } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-background shadow transition ${
+          checked ? "translate-x-[18px]" : "translate-x-[2px]"
+        }`}
+      />
+    </button>
+  )
+}
+
 function SidebarLink({
   href,
   icon,
@@ -589,6 +624,8 @@ function WidgetWorkspace({
   const [name, setName] = useState(widget.name)
   const [triggerLabel, setTriggerLabel] = useState(widget.triggerLabel)
   const [accent, setAccent] = useState(widget.accent)
+  const [collectName, setCollectName] = useState(widget.collectName)
+  const [nameRequired, setNameRequired] = useState(widget.nameRequired)
   const [questions, setQuestions] = useState<FeedbackQuestion[]>(widget.questions)
   const [responses, setResponses] = useState<ResponseRow[]>([])
   const [loadingResponses, setLoadingResponses] = useState(false)
@@ -598,6 +635,8 @@ function WidgetWorkspace({
     setName(widget.name)
     setTriggerLabel(widget.triggerLabel)
     setAccent(widget.accent)
+    setCollectName(widget.collectName)
+    setNameRequired(widget.nameRequired)
     setQuestions(widget.questions)
   }, [widget])
 
@@ -605,6 +644,8 @@ function WidgetWorkspace({
     name !== widget.name ||
     triggerLabel !== widget.triggerLabel ||
     accent !== widget.accent ||
+    collectName !== widget.collectName ||
+    nameRequired !== widget.nameRequired ||
     JSON.stringify(questions) !== JSON.stringify(widget.questions)
 
   const loadResponses = useCallback(async () => {
@@ -631,7 +672,14 @@ function WidgetWorkspace({
       const res = await fetch(`/api/feedback/widgets/${widget.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, triggerLabel, accent, questions }),
+        body: JSON.stringify({
+          name,
+          triggerLabel,
+          accent,
+          questions,
+          collectName,
+          nameRequired,
+        }),
       })
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as { message?: string } | null
@@ -714,6 +762,10 @@ function WidgetWorkspace({
             setTriggerLabel={setTriggerLabel}
             accent={accent}
             setAccent={setAccent}
+            collectName={collectName}
+            setCollectName={setCollectName}
+            nameRequired={nameRequired}
+            setNameRequired={setNameRequired}
             widget={widget}
           />
         ) : tab === "questions" ? (
@@ -809,6 +861,10 @@ function SettingsPanel({
   setTriggerLabel,
   accent,
   setAccent,
+  collectName,
+  setCollectName,
+  nameRequired,
+  setNameRequired,
   widget,
 }: {
   name: string
@@ -817,6 +873,10 @@ function SettingsPanel({
   setTriggerLabel: (next: string) => void
   accent: string
   setAccent: (next: string) => void
+  collectName: boolean
+  setCollectName: (next: boolean) => void
+  nameRequired: boolean
+  setNameRequired: (next: boolean) => void
   widget: WidgetSummary
 }) {
   return (
@@ -899,6 +959,39 @@ function SettingsPanel({
             </span>
           </div>
         </div>
+      </PanelSection>
+
+      <PanelSection
+        title="Submitter"
+        description="Capture who's writing. Stored on every response so you can attribute it later."
+      >
+        <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-3">
+          <span className="flex flex-col gap-0.5">
+            <span className="text-[13px] font-medium text-foreground">Ask for a name</span>
+            <span className="text-[11px] text-muted-foreground">
+              Renders a &ldquo;Your name&rdquo; field at the top of the dialog.
+            </span>
+          </span>
+          <Toggle checked={collectName} onChange={setCollectName} ariaLabel="Collect name" />
+        </label>
+        <label
+          className={`flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-3 transition ${
+            collectName ? "" : "opacity-50"
+          }`}
+        >
+          <span className="flex flex-col gap-0.5">
+            <span className="text-[13px] font-medium text-foreground">Make name required</span>
+            <span className="text-[11px] text-muted-foreground">
+              Submission is rejected if the name is blank.
+            </span>
+          </span>
+          <Toggle
+            checked={nameRequired}
+            onChange={setNameRequired}
+            ariaLabel="Name required"
+            disabled={!collectName}
+          />
+        </label>
       </PanelSection>
 
       <PanelSection title="Identifier" description="Use this key in your embed snippet.">
@@ -1327,8 +1420,27 @@ function ResponseCard({
   response: ResponseRow
   questions: FeedbackQuestion[]
 }) {
+  const initial = (response.submitterName ?? "").trim().charAt(0).toUpperCase() || "·"
   return (
     <div className="rounded-xl border border-border bg-background p-4">
+      {response.submitterName ? (
+        <div className="mb-3 flex items-center gap-2.5 border-b border-border pb-3">
+          <span
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-foreground/5 font-mono text-[12px] font-semibold text-foreground"
+            aria-hidden
+          >
+            {initial}
+          </span>
+          <div className="min-w-0">
+            <div className="truncate font-display text-[16px] italic leading-tight text-foreground">
+              {response.submitterName}
+            </div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+              {formatRelative(response.submittedAt)}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="space-y-3">
         {questions.map((q) => {
           const value = response.answers[q.id]
@@ -1359,10 +1471,17 @@ function ResponseCard({
           )
         })}
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-0.5 border-t border-border pt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-        <span>{formatRelative(response.submittedAt)}</span>
-        {response.pageUrl ? <span className="truncate">· {response.pageUrl}</span> : null}
-      </div>
+      {response.submitterName && !response.pageUrl ? null : (
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-border pt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+          {!response.submitterName ? <span>{formatRelative(response.submittedAt)}</span> : null}
+          {response.pageUrl ? (
+            <span className="truncate">
+              {!response.submitterName ? "· " : ""}
+              {response.pageUrl}
+            </span>
+          ) : null}
+        </div>
+      )}
     </div>
   )
 }

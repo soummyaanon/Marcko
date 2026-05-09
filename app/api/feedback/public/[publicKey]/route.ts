@@ -41,6 +41,8 @@ export async function GET(
         triggerLabel: widget.triggerLabel,
         accent: widget.accent,
         questions: widget.questions,
+        collectName: widget.collectName,
+        nameRequired: widget.nameRequired,
       }),
     )
   } catch (error) {

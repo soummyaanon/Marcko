@@ -214,6 +214,7 @@
       error: null,
       config: null,
       values: {},
+      submitterName: "",
     }
 
     var trigger = null
@@ -255,6 +256,7 @@
       state.error = null
       state.submitted = false
       state.values = {}
+      state.submitterName = ""
       renderDialog()
     }
 
@@ -397,6 +399,33 @@
         card.appendChild(header)
 
         var body = $("div", { className: "marcko-fb-body" })
+        if (config.collectName) {
+          var nameWrap = $("div", { className: "marcko-fb-q" }, [
+            (function () {
+              var lbl = $(
+                "label",
+                { className: "marcko-fb-label", for: "marcko-submitter-name" },
+                "Your name",
+              )
+              if (config.nameRequired) {
+                lbl.appendChild($("span", { className: "marcko-fb-required" }, "*"))
+              }
+              return lbl
+            })(),
+            $("input", {
+              type: "text",
+              id: "marcko-submitter-name",
+              className: "marcko-fb-input",
+              placeholder: "Who's writing?",
+              maxlength: 120,
+              value: state.submitterName,
+              oninput: function (e) {
+                state.submitterName = e.target.value
+              },
+            }),
+          ])
+          body.appendChild(nameWrap)
+        }
         var qs = Array.isArray(config.questions) ? config.questions : []
         for (var i = 0; i < qs.length; i++) {
           body.appendChild(renderQuestion(qs[i]))
@@ -448,6 +477,14 @@
       state.error = null
 
       // Client-side required check (server enforces too)
+      if (state.config.collectName && state.config.nameRequired) {
+        var nm = (state.submitterName || "").trim()
+        if (nm.length === 0) {
+          state.error = "Please share your name."
+          renderDialog()
+          return
+        }
+      }
       var qs = state.config.questions || []
       for (var i = 0; i < qs.length; i++) {
         var q = qs[i]
@@ -458,7 +495,7 @@
           return
         }
       }
-      if (Object.keys(state.values).length === 0) {
+      if (Object.keys(state.values).length === 0 && !state.submitterName) {
         state.error = "Please answer at least one question."
         renderDialog()
         return
@@ -475,10 +512,15 @@
       }
 
       var sentAnswers = state.values
+      var sentName = (state.submitterName || "").trim() || null
       fetch(submitUrl, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ answers: sentAnswers, pageUrl: pageUrl }),
+        body: JSON.stringify({
+          answers: sentAnswers,
+          submitterName: sentName,
+          pageUrl: pageUrl,
+        }),
       })
         .then(function (r) {
           return r.json().then(
@@ -498,7 +540,7 @@
             try {
               window.dispatchEvent(
                 new CustomEvent("marcko:submit", {
-                  detail: { key: key, answers: sentAnswers },
+                  detail: { key: key, answers: sentAnswers, submitterName: sentName },
                 }),
               )
             } catch (e) {
