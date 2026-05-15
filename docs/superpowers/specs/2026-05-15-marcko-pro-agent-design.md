@@ -137,6 +137,8 @@ create table if not exists public.dodo_webhook_events (
 );
 ```
 
+Plus `subscription_events` (append-only audit table — see §8.10).
+
 Phase-2+ adds `document_embeddings` (deferred to its own spec).
 
 ### 5.4 Pro gating
@@ -268,7 +270,131 @@ Thin wrapper around `dodo.customers.portal.create()` (or equivalent) returning a
 
 `app/pricing/page.tsx` — public; if signed in, CTA hits `/api/billing/checkout`; if not, opens Google sign-in modal first. Shows all 5 Pro features as "Coming with Pro" — even Phases 2–5 — to set expectations.
 
-## 8. Error handling
+## 8. Security & Data Integrity (cross-cutting, non-negotiable)
+
+This applies to every phase. Every PR must check the box for the items relevant to it.
+
+### 8.1 Secrets & keys
+
+- `OPENAI_API_KEY`, `DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_WEBHOOK_SECRET`, `DOCUMENT_ENCRYPTION_KEY`, `BETTER_AUTH_SECRET`, `SUPABASE_SERVICE_ROLE_KEY` — **server-only**. Never imported into a `"use client"` file, never prefixed `NEXT_PUBLIC_`.
+- Enforce via an ESLint rule (`no-restricted-imports` on `process.env.*` from client files) and a CI grep that fails the build if any of the secret names appear in the client bundle (`.next/static`).
+- Add a startup assertion in `lib/env.ts` (zod-validated) that throws if any required secret is missing in production. No silent fallbacks.
+- Rotation: document keys in `docs/operations/secrets.md`; quarterly rotation cadence. Webhook secret rotation is a two-step (add new, drain old) — handler accepts either during the window.
+
+### 8.2 Authentication & authorization
+
+- Every route under `/api/ai/*` and `/api/billing/*` calls `getSession()` first. No anonymous access except the Dodo webhook (which authenticates via signature) and Phase-3 talkable-doc reader endpoint (rate-limited, no PII).
+- Authorization is **resource-scoped**: any route that touches a `document` or `feedback_widget` must verify `row.owner_id === session.user.id` before doing anything else. Centralize in `lib/auth/can.ts` so the same predicate is used in API + RSC.
+- Better-Auth sessions are HttpOnly cookies, `Secure`, `SameSite=Lax`. Confirm CSRF protection is on for state-changing POSTs (Better-Auth handles this; we verify in tests).
+- Don't trust `users.tier` from the client — always re-read server-side inside `withProGate`.
+
+### 8.3 Input validation
+
+- Every API route validates its body with **zod** at the boundary; reject with 400 + safe message on parse fail.
+- Hard limits enforced server-side regardless of client UI:
+  - `selection` ≤ 8 KB, `context` ≤ 16 KB (truncated, not rejected, for `inline`).
+  - `messages` array ≤ 50 entries, each message ≤ 16 KB (later phases).
+  - Reject any field containing non-printable control chars except `\n`, `\r`, `\t`.
+
+### 8.4 Prompt-injection defense
+
+- AI output is **never** executed or trusted as control flow. Tool-calling (Phase 5) requires every tool call to map to a typed action — model output is data, not code.
+- Content from other users (Phase 3 talkable-doc reader chat) is wrapped in `<untrusted_content>` tags in the prompt; system prompt explicitly tells the model to ignore instructions inside those tags.
+- AI-rendered HTML/JS stays inside the existing **iframe sandbox** (`live-preview-sandbox.tsx`, `sandbox="allow-scripts"` only, no `allow-same-origin`). Mermaid output is rendered by the existing mermaid component, which doesn't `eval`.
+- Document content sent to OpenAI is never logged into `ai_usage`; we store only token counts, model id, ms, and action kind.
+
+### 8.5 Rate limiting (separate from monthly quota)
+
+- Per-user burst: ≤ **10 AI requests / 10s**, ≤ **60 / minute**. Enforced via Supabase (token-bucket row keyed by user id) — no Redis dep.
+- Per-IP for unauthenticated talkable-doc reader chat (Phase 3): ≤ **20 / minute / IP**, ≤ **200 / day / IP / doc**.
+- `/api/billing/checkout` is limited to ≤ **5 / hour / user** to prevent abuse loops.
+
+### 8.6 Webhook security
+
+- Read raw body **before** `req.json()` so the signature is verified against the exact bytes Dodo signed.
+- Signature comparison uses **`crypto.timingSafeEqual`** to prevent timing leaks.
+- Reject events older than **5 minutes** (replay window).
+- `dodo_webhook_events.id` is a primary key — duplicate insert means "already processed, return 200 immediately." Verification happens **before** the idempotency insert; an invalid signature never touches the DB.
+- All `users.tier` mutations triggered by webhooks happen inside a single SQL `UPDATE` (atomic). We never read-then-write.
+- Audit log: every successful webhook also writes a row to `subscription_events` (see §8.10) — append-only, never deleted.
+
+### 8.7 Data integrity in the editor (no-data-loss rules)
+
+- AI inline edits **never** overwrite the user's text directly. The streamed result lives in a transient overlay; the underlying buffer is unchanged until the user clicks ✓ accept. ESC / ✗ discards the suggestion.
+- Before applying an accepted suggestion, push the prior selection onto a **client-side undo stack** (≥ 25 entries, in-memory). Browser back/forward never closes the page without confirming if there are unsaved changes.
+- Existing **encrypted draft autosave** (`/api/draft`) continues to run on a debounce (≤ 2s) independently of AI; AI flows don't bypass it. Verified by an integration test.
+- On AI stream error, the overlay is discarded — we never write a partial AI completion to the document or to the draft.
+- Local-storage `marcko-content` backup is kept in addition to server draft, so a single source failure can't lose work.
+
+### 8.8 Encryption boundaries
+
+- `DOCUMENT_ENCRYPTION_KEY` already encrypts shared document content at rest (existing system, do not change).
+- Embeddings (Phase 2) are derived from plaintext but stored as float vectors; we treat them as **sensitive but reversible-ish** — accessible only via the user's own session, never returned over public APIs. The `document_embeddings` table has Supabase Row-Level Security: `auth.uid()::text = owner_id`.
+- Phase-3 talkable-doc reader chat retrieves embeddings only for the **specific shared doc** the reader has access to (via the same access-token check as the existing share-view). Never cross-doc retrieval for readers.
+
+### 8.9 Tier-downgrade data preservation
+
+When a Dodo `subscription.cancelled` / `expired` event flips a user back to `free`:
+
+- **Nothing is deleted.** Documents, drafts, embeddings, feedback widgets, responses, usage history — all preserved.
+- Pro features become gated (return 402 + upgrade CTA), not destructive.
+- `ai_usage` rows are kept for at least **12 months** (analytics + dispute resolution); only quota-counting reads the current month.
+- Re-subscribing restores access instantly — no re-onboarding, no data migration.
+
+### 8.10 Audit log
+
+New table, append-only, never modified:
+
+```sql
+create table if not exists public.subscription_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null references public.user(id) on delete restrict,
+  source text not null,         -- 'dodo_webhook' | 'admin' | 'system'
+  event_type text not null,     -- mirrors Dodo event type
+  dodo_event_id text,           -- nullable, for non-Dodo sources
+  previous_tier text,
+  new_tier text,
+  previous_pro_until timestamptz,
+  new_pro_until timestamptz,
+  raw jsonb,                    -- redacted event payload
+  created_at timestamptz not null default now()
+);
+create index if not exists subscription_events_user_idx
+  on public.subscription_events (user_id, created_at desc);
+```
+
+`on delete restrict` deliberately blocks user deletion when audit rows exist; user deletion goes through a separate soft-delete path (out of scope this phase but documented).
+
+### 8.11 Database safety
+
+- All migrations are **idempotent** (`if not exists`, `add column if not exists`). Each migration has a paired down-script in `scripts/down/` (manually run only).
+- Supabase **Point-in-Time Recovery** (PITR) must be enabled on the project (operations checklist). Add to README setup.
+- `ai_usage`, `subscription_events`, `dodo_webhook_events`, and Phase-2 `document_embeddings` all have **Row-Level Security** policies enforcing `auth.uid()::text = user_id` (or equivalent owner predicate).
+- All cross-table mutations triggered by webhooks use a single transactional function (`process_subscription_event(...)` SQL function) so partial state is impossible.
+
+### 8.12 Logging & PII
+
+- Server logs **never** contain: document/selection content, feedback response text, user emails (use user id), API keys, full webhook payloads (store in `subscription_events.raw` redacted).
+- Error responses to clients are **safe by default** — internal errors return `{ error: 'internal_error', requestId }`; full detail is in server logs keyed by `requestId`.
+
+### 8.13 Backups & disaster recovery
+
+- Supabase PITR: 7-day window (free) — upgrade to 14-day before public launch.
+- Weekly logical `pg_dump` of all custom tables (`ai_usage`, `subscription_events`, `dodo_webhook_events`, `document_embeddings`, `documents`, `feedback_*`) to an offsite bucket. Documented in `docs/operations/backups.md` (created with the rollout PR).
+- Restore drill: documented procedure, run before public launch.
+
+### 8.14 Verification gates per PR
+
+Each implementation PR adds a checklist comment confirming relevance to:
+
+- [ ] Zod validation on new endpoints
+- [ ] `getSession()` + resource ownership check on new endpoints
+- [ ] No secret leaks to client bundle (verified by build grep)
+- [ ] Idempotent migration + RLS policies
+- [ ] Tests cover failure paths (auth fail, quota over, webhook bad sig, AI error)
+- [ ] No raw user content in logs
+
+## 9. Error handling
 
 | Surface | Failure mode | Behavior |
 |---|---|---|
@@ -279,7 +405,7 @@ Thin wrapper around `dodo.customers.portal.create()` (or equivalent) returning a
 | Webhook | Unknown event type | 200 (acknowledge, ignore). |
 | Webhook | DB write fails post-verify | 500 → Dodo retries (idempotency table prevents double-apply). |
 
-## 9. Testing strategy
+## 10. Testing strategy
 
 - **Unit:** `lib/billing/webhook.ts` signature verification (good/bad signature, replay), prompt builders (snapshot tests), quota math.
 - **Integration (vitest + Supabase test schema):** webhook handler updates `users.tier` correctly for each event; quota wrapper rejects at limit; `withProGate` returns 402 for free user.
@@ -290,20 +416,20 @@ Thin wrapper around `dodo.customers.portal.create()` (or equivalent) returning a
   4. Cancel via portal → tier flips back to `free`.
   5. Replay a captured webhook → no double-credit.
 
-## 10. Rollout
+## 11. Rollout
 
 1. Ship behind `NEXT_PUBLIC_PRO_ENABLED=false` to start; QA team flips it on per env.
 2. Soft-launch to existing signed-in users with a "Free 10 inline edits this month" banner.
 3. Public `/pricing` page goes live after smoke tests pass on `live_mode` Dodo product.
 
-## 11. Open decisions deferred to later phase specs
+## 12. Open decisions deferred to later phase specs
 
 - **Phase 2 (Ask-Your-Library):** how/when documents get embedded (on save? nightly? on first chat?); chunking strategy; retrieval reranker (start without one).
 - **Phase 3 (Talkable Shared Docs):** abuse / rate-limit by IP for anonymous readers; per-doc owner toggle and analytics view; cost attribution to doc owner's quota.
 - **Phase 4 (Feedback Intelligence):** digest delivery (email vs. in-app); theming algorithm (cluster vs. taxonomy prompt).
 - **Phase 5 (Marcko Agent):** whether to re-host `marcko-mcp` in-process or call its tools directly; tool permissioning UI; confirmation prompts before destructive actions.
 
-## 12. Definition of done — Phase 0 + 1
+## 13. Definition of done — Phase 0 + 1
 
 - [ ] Migration `003_*.sql` applied in staging.
 - [ ] OpenAI + Dodo env vars present in Vercel project (test_mode).
@@ -314,3 +440,7 @@ Thin wrapper around `dodo.customers.portal.create()` (or equivalent) returning a
 - [ ] Usage rows written on every successful stream.
 - [ ] Replayed webhook is a no-op.
 - [ ] `/pricing` page live, shows all 5 features.
+- [ ] All §8 security checklist items verified (zod, auth, RLS, no secrets in client bundle, rate-limit, timing-safe webhook compare, audit log writing).
+- [ ] Inline AI never overwrites text without explicit accept (verified by integration test).
+- [ ] Tier downgrade preserves all user data; re-subscribe restores instantly (verified by manual test #4 + integration test).
+- [ ] PITR enabled on Supabase project; backup procedure documented in `docs/operations/backups.md`.
