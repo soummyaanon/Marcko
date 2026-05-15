@@ -21,7 +21,10 @@ import {
   Check,
   ChevronsUpDown,
   Github,
+  Sparkles,
+  CreditCard,
 } from "lucide-react";
+import { useTier } from "@/components/pro-gate";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -117,6 +120,7 @@ export function MarckoSidebar({
   const router = useRouter();
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed" && !isMobile;
+  const tier = useTier();
 
   const [showApiKeysDialog, setShowApiKeysDialog] = useState(false);
   const [history, setHistory] = useState<ShareHistoryItem[]>([]);
@@ -175,6 +179,24 @@ export function MarckoSidebar({
       router.push(`/?edit=${encodeURIComponent(id)}`);
     }
     closeMobile();
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const r = await fetch("/api/billing/portal", { method: "POST" });
+      if (!r.ok) {
+        toast.error("Couldn't open billing portal");
+        return;
+      }
+      const { url } = (await r.json()) as { url?: string };
+      if (url) {
+        window.location.href = url;
+      } else {
+        toast.error("Couldn't open billing portal");
+      }
+    } catch {
+      toast.error("Couldn't open billing portal");
+    }
   };
 
   const handleSignOut = async () => {
@@ -459,6 +481,22 @@ export function MarckoSidebar({
                       <History className="size-4" />
                       Manage shared links
                     </DropdownMenuItem>
+                    {tier.isPro ? (
+                      <DropdownMenuItem
+                        onClick={handleManageSubscription}
+                        className="gap-2"
+                      >
+                        <CreditCard className="size-4" />
+                        Manage subscription
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem asChild className="gap-2">
+                        <Link href="/pricing" onClick={closeMobile}>
+                          <Sparkles className="size-4" />
+                          Upgrade to Pro
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem asChild className="gap-2">
                       <a
                         href="https://github.com/soummyaanon/Marcko"

@@ -3,7 +3,7 @@
 import React from "react"
 import { nanoid } from "nanoid"
 
-import { useRef, useEffect, useMemo } from "react"
+import { useRef, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -18,6 +18,11 @@ import {
   shortenDataImageMarkdownUrls,
 } from "@/lib/markdown-inline-images"
 import { FloatingActionDock } from "@/components/floating-action-dock"
+import {
+  AIInlineMenu,
+  type Selection as AISelection,
+} from "@/components/editor/ai-inline-menu"
+import { AISlashMenu } from "@/components/editor/ai-slash-menu"
 import {
   Upload,
   RotateCcw,
@@ -176,10 +181,18 @@ export function MarkdownEditor({
           e.preventDefault()
           handleFormat("[", "](url)", "link text")
           return
-        case 'z':
+        case 'z': {
           e.preventDefault()
-          handleUndo()
+          // Prefer the AI undo stack when an AI replacement was the most recent
+          // change; otherwise fall back to the standard editor history.
+          const lastAIUndo = aiUndoStackRef.current.pop()
+          if (lastAIUndo !== undefined) {
+            updateValue(lastAIUndo, true)
+          } else {
+            handleUndo()
+          }
           return
+        }
       }
     }
 
@@ -282,10 +295,113 @@ export function MarkdownEditor({
 
   const debounceTimer = useRef<NodeJS.Timeout>(null)
 
+  // --- AI menu wiring ---------------------------------------------------------
+  const [aiSelection, setAISelection] = useState<AISelection | null>(null)
+  const [slashTrigger, setSlashTrigger] = useState<
+    { rect: DOMRect; context: string; from: number; to: number } | null
+  >(null)
+  const aiUndoStackRef = useRef<string[]>([])
+
+  const pushAIUndo = (prev: string) => {
+    const s = aiUndoStackRef.current
+    s.push(prev)
+    if (s.length > 25) s.shift()
+  }
+
+  const handleAISelect = () => {
+    const ta = textareaRef.current
+    if (!ta) return
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    if (end <= start) {
+      setAISelection(null)
+      return
+    }
+    const display = ta.value
+    const text = display.slice(start, end)
+    if (!text.trim()) {
+      setAISelection(null)
+      return
+    }
+    const before = display.slice(Math.max(0, start - 800), start)
+    const after = display.slice(end, Math.min(display.length, end + 800))
+    setAISelection({
+      text,
+      context: before + after,
+      rect: ta.getBoundingClientRect(),
+    })
+  }
+
+  const applyAIReplacement = (replacement: string) => {
+    const ta = textareaRef.current
+    if (!ta) {
+      setAISelection(null)
+      return
+    }
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    const currentDisplay = ta.value
+    pushAIUndo(value)
+    const nextDisplay =
+      currentDisplay.slice(0, start) + replacement + currentDisplay.slice(end)
+    const canonical = displayToCanonicalMarkdown(nextDisplay)
+    updateValue(canonical, true)
+    setAISelection(null)
+    const newCursor = start + replacement.length
+    setTimeout(() => {
+      if (!textareaRef.current) return
+      textareaRef.current.focus()
+      textareaRef.current.selectionStart = newCursor
+      textareaRef.current.selectionEnd = newCursor
+    }, 0)
+  }
+
+  const insertAtSlash = (text: string) => {
+    if (!slashTrigger) return
+    const ta = textareaRef.current
+    if (!ta) return
+    const currentDisplay = ta.value
+    pushAIUndo(value)
+    const nextDisplay =
+      currentDisplay.slice(0, slashTrigger.from) +
+      text +
+      currentDisplay.slice(slashTrigger.to)
+    const canonical = displayToCanonicalMarkdown(nextDisplay)
+    updateValue(canonical, true)
+    const newCursor = slashTrigger.from + text.length
+    setSlashTrigger(null)
+    setTimeout(() => {
+      if (!textareaRef.current) return
+      textareaRef.current.focus()
+      textareaRef.current.selectionStart = newCursor
+      textareaRef.current.selectionEnd = newCursor
+    }, 0)
+  }
+
+  const updateSlashTrigger = (target: HTMLTextAreaElement) => {
+    const display = target.value
+    const caret = target.selectionStart
+    const lineStart = display.lastIndexOf("\n", caret - 1) + 1
+    const line = display.slice(lineStart, caret)
+    if (line === "/ai") {
+      const rect = target.getBoundingClientRect()
+      setSlashTrigger({
+        rect,
+        context: display.slice(Math.max(0, lineStart - 1600), lineStart),
+        from: lineStart,
+        to: caret,
+      })
+    } else {
+      setSlashTrigger(null)
+    }
+  }
+  // --- end AI menu wiring -----------------------------------------------------
+
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newDisplay = e.target.value
     const canonical = displayToCanonicalMarkdown(newDisplay)
     onChange(canonical)
+    updateSlashTrigger(e.target)
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
 
@@ -600,6 +716,7 @@ export function MarkdownEditor({
             value={displayMarkdown}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
+            onSelect={handleAISelect}
             onPaste={handlePaste}
             onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
@@ -635,6 +752,21 @@ export function MarkdownEditor({
         <span className="hidden sm:inline text-muted-foreground/40">·</span>
         <span className="hidden sm:inline">{stats.minutes} min read</span>
       </div>
+
+      <AIInlineMenu
+        selection={aiSelection}
+        onApply={applyAIReplacement}
+        onDismiss={() => setAISelection(null)}
+      />
+      <AISlashMenu
+        trigger={
+          slashTrigger
+            ? { rect: slashTrigger.rect, context: slashTrigger.context }
+            : null
+        }
+        onInsert={insertAtSlash}
+        onDismiss={() => setSlashTrigger(null)}
+      />
     </div>
   )
 }
