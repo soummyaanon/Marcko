@@ -105,6 +105,33 @@ pnpm start
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+## Marcko Pro setup
+
+### Required env
+
+```env
+OPENAI_API_KEY=
+DODO_PAYMENTS_API_KEY=
+DODO_PAYMENTS_WEBHOOK_SECRET=
+DODO_PRO_PRODUCT_ID=
+NEXT_PUBLIC_DODO_PAYMENTS_ENVIRONMENT=test_mode
+```
+
+### One-time
+
+1. Apply `scripts/007_add_pro_tier_and_usage.sql` and `scripts/008_pro_tier_constraints_and_existence_check.sql` in the Supabase SQL editor (or via `node scripts/run-migration.mjs <path>`).
+2. Create one subscription product in Dodo Payments dashboard ($6/mo).
+3. Copy the product id into `DODO_PRO_PRODUCT_ID`.
+4. Configure the webhook URL in Dodo → `https://<your-app>/api/billing/dodo/webhook`. Subscribe to `subscription.active`, `subscription.updated`, `subscription.cancelled`, `subscription.expired`.
+
+### Verify
+
+- `curl http://localhost:3000/api/me` returns `{ "signedIn": false }` for an anonymous request.
+- Sign in, visit `/pricing`, click "Upgrade to Pro" → Dodo test-mode checkout opens.
+- Complete checkout → return to app → `/api/me` returns `"isPro": true`.
+
+See `docs/operations/secrets.md` and `docs/operations/backups.md`.
+
 ## License
 
 MIT License - see the [LICENSE](LICENSE) file for details.
