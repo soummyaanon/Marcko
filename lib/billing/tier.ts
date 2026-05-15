@@ -8,6 +8,16 @@ export type TierInfo = {
 }
 
 export async function getUserTier(userId: string): Promise<TierInfo> {
+  // DEV-ONLY: bypass tier check while Dodo verification is pending.
+  // Physically impossible in production — the NODE_ENV guard is checked at
+  // runtime, and Vercel production deploys set NODE_ENV=production.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    process.env.DEV_BYPASS_PRO === "true"
+  ) {
+    return { tier: "pro", proUntil: null, isPro: true }
+  }
+
   const supabase = createAdminClient()
   const { data } = await supabase
     .from("user")
