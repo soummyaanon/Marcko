@@ -78,7 +78,9 @@ export const POST = withProGate(
       },
     })
 
-    // AI SDK v6 renamed toDataStreamResponse() → toUIMessageStreamResponse().
-    return result.toUIMessageStreamResponse()
+    // Plain text stream: each chunk is the next bit of text, no JSON parsing
+    // needed on the client. Simpler than toUIMessageStreamResponse() for our
+    // single-shot inline completion use case.
+    return result.toTextStreamResponse()
   }),
 )

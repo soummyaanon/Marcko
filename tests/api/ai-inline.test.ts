@@ -18,9 +18,9 @@ vi.mock("@/lib/ai/openai", () => ({
 }))
 vi.mock("ai", () => ({
   streamText: () => ({
-    toUIMessageStreamResponse: () =>
-      new Response("data: hello\n\n", {
-        headers: { "content-type": "text/event-stream" },
+    toTextStreamResponse: () =>
+      new Response("hello", {
+        headers: { "content-type": "text/plain; charset=utf-8" },
       }),
   }),
 }))
@@ -37,7 +37,7 @@ describe("POST /api/ai/inline", () => {
     expect(res.status).toBe(400)
   })
 
-  it("streams a 200 SSE response for a valid rewrite", async () => {
+  it("streams a 200 text response for a valid rewrite", async () => {
     const { POST } = await import("@/app/api/ai/inline/route")
     const res = await POST(
       new Request("http://x", {
@@ -50,6 +50,6 @@ describe("POST /api/ai/inline", () => {
       }),
     )
     expect(res.status).toBe(200)
-    expect(res.headers.get("content-type")).toContain("text/event-stream")
+    expect(res.headers.get("content-type")).toContain("text/plain")
   })
 })
