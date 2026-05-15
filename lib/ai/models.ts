@@ -1,8 +1,8 @@
 import "server-only"
 
 export const MODELS = {
-  inlineFast: "gpt-5-mini",
-  inlineLong: "gpt-5",
+  inlineFast: "gpt-4o-mini",
+  inlineLong: "gpt-4o",
   embedding: "text-embedding-3-small",
 } as const
 

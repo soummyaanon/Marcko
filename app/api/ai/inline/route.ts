@@ -60,27 +60,55 @@ export const POST = withProGate(
     const maxOutputTokens = action === "generate_section" ? 2048 : 1024
     const startedAt = Date.now()
 
-    const result = streamText({
-      model: openai(model),
-      system: prompt.system,
-      prompt: prompt.user,
-      maxOutputTokens,
-      onFinish: async ({ usage }) => {
-        // AI SDK v6 usage shape: { inputTokens, outputTokens, totalTokens }
-        await recordUsage({
-          userId: ctx.userId,
-          kind: "inline_edit",
-          model,
-          inputTokens: usage?.inputTokens ?? 0,
-          outputTokens: usage?.outputTokens ?? 0,
-          ms: Date.now() - startedAt,
-        })
-      },
-    })
+    try {
+      const result = streamText({
+        model: openai(model),
+        system: prompt.system,
+        prompt: prompt.user,
+        maxOutputTokens,
+        onError({ error }) {
+          console.error("[ai/inline] stream error", {
+            userId: ctx.userId,
+            action,
+            model,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        },
+        onFinish: async ({ usage }) => {
+          // AI SDK v6 usage shape: { inputTokens, outputTokens, totalTokens }
+          try {
+            await recordUsage({
+              userId: ctx.userId,
+              kind: "inline_edit",
+              model,
+              inputTokens: usage?.inputTokens ?? 0,
+              outputTokens: usage?.outputTokens ?? 0,
+              ms: Date.now() - startedAt,
+            })
+          } catch (e) {
+            console.error("[ai/inline] recordUsage failed", {
+              userId: ctx.userId,
+              error: e instanceof Error ? e.message : String(e),
+            })
+          }
+        },
+      })
 
-    // Plain text stream: each chunk is the next bit of text, no JSON parsing
-    // needed on the client. Simpler than toUIMessageStreamResponse() for our
-    // single-shot inline completion use case.
-    return result.toTextStreamResponse()
+      // Plain text stream: each chunk is the next bit of text, no JSON parsing
+      // needed on the client. Simpler than toUIMessageStreamResponse() for our
+      // single-shot inline completion use case.
+      return result.toTextStreamResponse()
+    } catch (e) {
+      console.error("[ai/inline] streamText threw synchronously", {
+        userId: ctx.userId,
+        action,
+        model,
+        error: e instanceof Error ? e.stack ?? e.message : String(e),
+      })
+      return Response.json(
+        { error: "ai_error", detail: e instanceof Error ? e.message : "unknown" },
+        { status: 500 },
+      )
+    }
   }),
 )
