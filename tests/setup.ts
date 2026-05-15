@@ -2,3 +2,6 @@
 process.env.DOCUMENT_ENCRYPTION_KEY ??=
   "test-document-encryption-key-do-not-use-in-prod"
 process.env.NODE_ENV ??= "test"
+
+// Ensure the dev-only Pro bypass is never honored in tests.
+delete process.env.DEV_BYPASS_PRO

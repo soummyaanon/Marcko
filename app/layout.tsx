@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "sonner";
 import { Instrument_Serif, JetBrains_Mono, Inter_Tight } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { TierProvider } from "@/components/pro-gate";
 import { MarckoFeedback } from "@/components/marcko-feedback";
 import { getSiteOrigin } from "@/lib/site-url";
 import "./globals.css";
@@ -176,9 +177,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster richColors position="top-right" />
-          <MarckoFeedback />
+          <TierProvider>
+            {children}
+            <Toaster richColors position="top-right" />
+            <MarckoFeedback />
+          </TierProvider>
         </ThemeProvider>
         <Analytics />
       </body>
