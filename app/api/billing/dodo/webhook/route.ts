@@ -23,13 +23,19 @@ async function resolveUserIdByCustomer(
 }
 
 export async function POST(req: Request): Promise<Response> {
+  const secret = env.DODO_PAYMENTS_WEBHOOK_SECRET
+  if (!secret) {
+    console.error("webhook: DODO_PAYMENTS_WEBHOOK_SECRET not configured")
+    return new Response("misconfigured", { status: 500 })
+  }
+
   const raw = await req.text() // raw body BEFORE any parsing
   const sig = req.headers.get("webhook-signature")
 
   const ok = verifyDodoSignature({
     payload: raw,
     headerSignature: sig,
-    secret: env.DODO_PAYMENTS_WEBHOOK_SECRET,
+    secret,
   })
   if (!ok) {
     return new Response("bad signature", { status: 400 })
