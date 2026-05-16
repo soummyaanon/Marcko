@@ -4,7 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "sonner";
 import { Instrument_Serif, JetBrains_Mono, Inter_Tight } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
-import { MarckoFeedback } from "@/components/marcko-feedback";
+
 import { getSiteOrigin } from "@/lib/site-url";
 import "./globals.css";
 
@@ -178,7 +178,6 @@ export default function RootLayout({
         >
           {children}
           <Toaster richColors position="top-right" />
-          <MarckoFeedback />
         </ThemeProvider>
         <Analytics />
       </body>
